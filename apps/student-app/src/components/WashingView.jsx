@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { WHO_STEPS_INFO } from '../../../shared/services/stepModelService.js';
+import { WHO_STEPS_INFO } from '../../../../shared/services/stepModelService.js';
 
 export function WashingView({
   activeStep = 1,
