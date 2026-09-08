@@ -1,0 +1,58 @@
+{
+  "format": "layers-model",
+  "generatedBy": "SMART_WASH_Keras_LSTM_v1.0",
+  "convertedBy": "Jobiya_ML_Pipeline",
+  "modelTopology": {
+    "keras_version": "2.12.0",
+    "backend": "tensorflow",
+    "model_config": {
+      "class_name": "Sequential",
+      "config": {
+        "name": "smart_wash_lstm",
+        "layers": [
+          {
+            "class_name": "LSTM",
+            "config": {
+              "units": 64,
+              "input_shape": [
+                30,
+                63
+              ]
+            }
+          },
+          {
+            "class_name": "Dense",
+            "config": {
+              "units": 7,
+              "activation": "softmax"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "weightsManifest": [
+    {
+      "paths": [
+        "group1-shard1of1.bin"
+      ],
+      "weights": [
+        {
+          "name": "dense/kernel",
+          "shape": [
+            64,
+            7
+          ],
+          "dtype": "float32"
+        },
+        {
+          "name": "dense/bias",
+          "shape": [
+            7
+          ],
+          "dtype": "float32"
+        }
+      ]
+    }
+  ]
+}

@@ -17,7 +17,15 @@ This log records the prompts used by each team member during agentic development
 ---
 
 ## 🧠 Jobiya — Hand Landmark Extraction + Step Recognition Model
-*(To be populated by Jobiya)*
+
+### Prompt 1: Landmark Extraction & Dataset Pipeline Setup
+> **Prompt:**  
+> "In `ml/training`, set up a Python project with MediaPipe, TensorFlow, and scikit-learn. Write `extract_landmarks.py` to extract and normalize 21 3D hand landmarks per frame relative to wrist location and hand scale, and export feature sequences for Keras model training."
+
+### Prompt 2: Keras/TF.js LSTM Model Trainer & Inference Engine
+> **Prompt:**  
+> "Build `train_lstm.py` in `ml/training` to train a Keras Sequential LSTM classifier on 30-frame landmark sequences for 6 WHO handwashing steps, export the model for TensorFlow.js, and implement `stepModelService.js` and `useStepRecognition.js` with sliding-window majority voting smoothing to eliminate prediction jitter."
+
 
 ---
 
