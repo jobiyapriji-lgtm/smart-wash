@@ -3,9 +3,10 @@ import { FaceEnrollmentDemo } from '../shared/components/FaceEnrollmentDemo.jsx'
 import { useStepRecognition } from '../shared/hooks/useStepRecognition.js';
 import { WHO_STEPS_INFO } from '../shared/services/stepModelService.js';
 import { StudentKioskApp } from '../apps/student-app/src/StudentKioskApp.jsx';
+import { TeacherDashboardApp } from '../apps/teacher-dashboard/src/TeacherDashboardApp.jsx';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('kiosk_app'); // 'kiosk_app' | 'ml_jobiya' | 'face_jesty'
+  const [activeTab, setActiveTab] = useState('kiosk_app'); // 'kiosk_app' | 'ml_jobiya' | 'face_jesty' | 'teacher_dashboard'
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0b0f19 0%, #111827 50%, #0f172a 100%)', color: '#f3f4f6' }}>
@@ -51,7 +52,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab('kiosk_app')}
             style={{
-              padding: '8px 18px',
+              padding: '8px 16px',
               borderRadius: '8px',
               border: 'none',
               cursor: 'pointer',
@@ -68,7 +69,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab('ml_jobiya')}
             style={{
-              padding: '8px 18px',
+              padding: '8px 16px',
               borderRadius: '8px',
               border: 'none',
               cursor: 'pointer',
@@ -85,7 +86,7 @@ export default function App() {
           <button
             onClick={() => setActiveTab('face_jesty')}
             style={{
-              padding: '8px 18px',
+              padding: '8px 16px',
               borderRadius: '8px',
               border: 'none',
               cursor: 'pointer',
@@ -99,18 +100,37 @@ export default function App() {
           >
             🔐 Jesty: Face ID & Backend
           </button>
+          <button
+            onClick={() => setActiveTab('teacher_dashboard')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '13px',
+              transition: 'all 0.2s ease',
+              background: activeTab === 'teacher_dashboard' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+              color: activeTab === 'teacher_dashboard' ? '#ffffff' : '#9ca3af',
+              boxShadow: activeTab === 'teacher_dashboard' ? '0 2px 8px rgba(245, 158, 11, 0.3)' : 'none'
+            }}
+          >
+            📊 Rahul: Teacher Dashboard
+          </button>
         </nav>
       </header>
 
       {/* Main Workbench Body */}
-      <main style={{ maxWidth: activeTab === 'kiosk_app' ? '100%' : '1280px', margin: '0 auto', padding: activeTab === 'kiosk_app' ? 0 : '32px 24px' }}>
+      <main style={{ maxWidth: (activeTab === 'kiosk_app' || activeTab === 'teacher_dashboard') ? '100%' : '1280px', margin: '0 auto', padding: (activeTab === 'kiosk_app' || activeTab === 'teacher_dashboard') ? 0 : '32px 24px' }}>
         {activeTab === 'kiosk_app' && <StudentKioskApp useMock={true} />}
         {activeTab === 'ml_jobiya' && <JobiyaMLWorkbench />}
         {activeTab === 'face_jesty' && <FaceEnrollmentDemo />}
+        {activeTab === 'teacher_dashboard' && <TeacherDashboardApp />}
       </main>
     </div>
   );
 }
+
 
 
 function JobiyaMLWorkbench() {

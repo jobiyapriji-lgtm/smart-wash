@@ -39,4 +39,12 @@ This log records the prompts used by each team member during agentic development
 
 
 ## 📊 Rahul — Scoring Logic & Dashboard
-*(To be populated by Rahul)*
+
+### Prompt 1: Explainable Handwash Scoring Formula & Audio Feedback
+> **Prompt:**  
+> "Build `shared/services/scoringService.js` to compute a 0-100 score based on WHO step completion (50%), target step duration closeness (30%), and ML landmark confidence (20%). Build `audioFeedbackService.js` for speech synthesis step guidance."
+
+### Prompt 2: Teacher Analytics Dashboard App & Leaderboard
+> **Prompt:**  
+> "In `apps/teacher-dashboard`, scaffold a React app with Firebase Auth login for teachers, a student compliance roster table, an analytics trend graph of class average scores over time, and a student leaderboard sorted by score and streak count."
+
