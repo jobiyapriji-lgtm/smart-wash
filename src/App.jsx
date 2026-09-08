@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FaceEnrollmentDemo } from '../shared/components/FaceEnrollmentDemo.jsx';
 import { useStepRecognition } from '../shared/hooks/useStepRecognition.js';
 import { WHO_STEPS_INFO } from '../shared/services/stepModelService.js';
+import { StudentKioskApp } from '../apps/student-app/src/StudentKioskApp.jsx';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('ml_jobiya'); // 'ml_jobiya' | 'face_jesty' | 'kiosk_demo'
+  const [activeTab, setActiveTab] = useState('kiosk_app'); // 'kiosk_app' | 'ml_jobiya' | 'face_jesty'
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #0b0f19 0%, #111827 50%, #0f172a 100%)', color: '#f3f4f6' }}>
@@ -26,17 +27,17 @@ export default function App() {
             width: '42px',
             height: '42px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+            background: 'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: '22px',
-            boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)'
+            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
           }}>
             🧼
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em', background: 'linear-gradient(90deg, #60a5fa, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, letterSpacing: '-0.02em', background: 'linear-gradient(90deg, #34d399, #60a5fa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               SMART WASH
             </h1>
             <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>
@@ -47,6 +48,23 @@ export default function App() {
 
         {/* Navigation Tabs */}
         <nav style={{ display: 'flex', background: 'rgba(31, 41, 55, 0.6)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <button
+            onClick={() => setActiveTab('kiosk_app')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: '13px',
+              transition: 'all 0.2s ease',
+              background: activeTab === 'kiosk_app' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
+              color: activeTab === 'kiosk_app' ? '#ffffff' : '#9ca3af',
+              boxShadow: activeTab === 'kiosk_app' ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none'
+            }}
+          >
+            📱 Joel: Student Kiosk App
+          </button>
           <button
             onClick={() => setActiveTab('ml_jobiya')}
             style={{
@@ -81,35 +99,19 @@ export default function App() {
           >
             🔐 Jesty: Face ID & Backend
           </button>
-          <button
-            onClick={() => setActiveTab('kiosk_demo')}
-            style={{
-              padding: '8px 18px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: '13px',
-              transition: 'all 0.2s ease',
-              background: activeTab === 'kiosk_demo' ? 'linear-gradient(135deg, #10b981, #059669)' : 'transparent',
-              color: activeTab === 'kiosk_demo' ? '#ffffff' : '#9ca3af',
-              boxShadow: activeTab === 'kiosk_demo' ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none'
-            }}
-          >
-            📱 Kiosk App Flow
-          </button>
         </nav>
       </header>
 
       {/* Main Workbench Body */}
-      <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px 24px' }}>
+      <main style={{ maxWidth: activeTab === 'kiosk_app' ? '100%' : '1280px', margin: '0 auto', padding: activeTab === 'kiosk_app' ? 0 : '32px 24px' }}>
+        {activeTab === 'kiosk_app' && <StudentKioskApp useMock={true} />}
         {activeTab === 'ml_jobiya' && <JobiyaMLWorkbench />}
         {activeTab === 'face_jesty' && <FaceEnrollmentDemo />}
-        {activeTab === 'kiosk_demo' && <KioskAppFlowDemo />}
       </main>
     </div>
   );
 }
+
 
 function JobiyaMLWorkbench() {
   const [useMock, setUseMock] = useState(true);

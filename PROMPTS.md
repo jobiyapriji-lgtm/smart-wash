@@ -29,10 +29,14 @@ This log records the prompts used by each team member during agentic development
 
 ---
 
-## 🖥️ Joel — Frontend Shell
-*(To be populated by Joel)*
+## 🖥️ Joel — Frontend Shell (Student Kiosk App)
+
+### Prompt 1: Student Kiosk App Shell & State Machine
+> **Prompt:**  
+> "Scaffold `apps/student-app` with a full-screen kiosk state machine (`idle` -> `identifying` -> `washing` -> `scoring` -> `feedback` -> `idle`) using React state or a reducer. Build `StudentKioskApp.jsx`, `KioskCamera.jsx`, `WashingView.jsx`, and `FeedbackView.jsx` to integrate Jesty's face-api hook and Jobiya's hand-tracking hook."
 
 ---
+
 
 ## 📊 Rahul — Scoring Logic & Dashboard
 *(To be populated by Rahul)*
