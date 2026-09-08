@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ComplianceTrendChart } from './components/ComplianceTrendChart.jsx';
 import { StudentLeaderboard } from './components/StudentLeaderboard.jsx';
-import { getEnrolledStudents } from '../../../shared/services/studentService.js';
-import { getRecentSessions } from '../../../shared/services/sessionService.js';
+import { getAllStudents } from '../../../shared/services/studentService.js';
+import { getAllSessions } from '../../../shared/services/sessionService.js';
 
 export function TeacherDashboardApp() {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
@@ -13,8 +13,8 @@ export function TeacherDashboardApp() {
 
   useEffect(() => {
     async function loadDashboardData() {
-      const studentList = await getEnrolledStudents();
-      const sessionList = await getRecentSessions(20);
+      const studentList = await getAllStudents();
+      const sessionList = await getAllSessions();
       
       // Calculate scores for students based on recent sessions
       const studentMap = studentList.map(st => {
