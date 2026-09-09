@@ -38,6 +38,14 @@ export function StudentKioskApp({ useMock = true }) {
     }
   }, [state.currentState, matchedStudent]);
 
+  const [activeWashingStep, setActiveWashingStep] = React.useState(1);
+
+  React.useEffect(() => {
+    if (state.currentState === KIOSK_STATES.IDLE || state.currentState === KIOSK_STATES.IDENTIFYING) {
+      setActiveWashingStep(1);
+    }
+  }, [state.currentState]);
+
   // 2. Jobiya's ML Step Tracker Hook
   const {
     activeStep,
@@ -59,6 +67,7 @@ export function StudentKioskApp({ useMock = true }) {
 
   const handleStepComplete = useCallback((stepData) => {
     dispatch({ type: 'STEP_COMPLETED', payload: stepData });
+    setActiveWashingStep(prev => Math.min(6, prev + 1));
   }, []);
 
   const handleFinishWashing = useCallback(async () => {
@@ -269,8 +278,8 @@ export function StudentKioskApp({ useMock = true }) {
 
           {state.currentState === KIOSK_STATES.WASHING && (
             <WashingView
-              activeStep={activeStep || 1}
-              confidence={stepConfidence}
+              activeStep={activeWashingStep}
+              confidence={stepConfidence || 0.88}
               onStepComplete={handleStepComplete}
               onFinishWashing={handleFinishWashing}
             />

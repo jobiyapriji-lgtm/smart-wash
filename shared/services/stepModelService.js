@@ -155,8 +155,8 @@ export class StepRecognitionEngine {
   _predictMock() {
     this.mockFrameCounter++;
     
-    // Progress mock step every 20 frames
-    if (this.mockFrameCounter % 20 === 0 && this.mockTargetStep < 6) {
+    // Smoothly progress mock step every 300 frames (~5-6s per WHO guideline)
+    if (this.mockFrameCounter > 0 && this.mockFrameCounter % 300 === 0 && this.mockTargetStep < 6) {
       this.mockTargetStep++;
     }
 
@@ -171,7 +171,7 @@ export class StepRecognitionEngine {
     return {
       rawStep: this.mockTargetStep,
       smoothedStep: this.currentStep,
-      confidence: Math.min(0.98, 0.75 + (this.mockFrameCounter % 10) * 0.02),
+      confidence: Math.min(0.98, 0.82 + ((this.mockFrameCounter % 30) / 30) * 0.12),
       bufferReady: true
     };
   }

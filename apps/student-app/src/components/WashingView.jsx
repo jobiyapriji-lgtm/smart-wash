@@ -12,11 +12,27 @@ export function WashingView({
   useEffect(() => {
     setStepTimer(0);
     const interval = setInterval(() => {
-      setStepTimer(prev => prev + 1);
+      setStepTimer(prev => {
+        const nextTime = prev + 1;
+        if (nextTime >= recDuration) {
+          if (onStepComplete) {
+            onStepComplete({
+              stepNumber: activeStep,
+              durationMs: recDuration * 1000,
+              avgConfidence: confidence || 0.9,
+              completed: true
+            });
+          }
+          if (activeStep >= 6 && onFinishWashing) {
+            setTimeout(onFinishWashing, 800);
+          }
+        }
+        return nextTime;
+      });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeStep]);
+  }, [activeStep, recDuration, onStepComplete, onFinishWashing, confidence]);
 
   const currentStepInfo = WHO_STEPS_INFO[activeStep] || WHO_STEPS_INFO[1];
   const recDuration = (currentStepInfo.recommendedDurationMs || 6000) / 1000;
