@@ -219,7 +219,7 @@ export function StudentKioskApp({ useMock = true }) {
                   <div style={{ fontSize: '56px', animation: 'spin 2s linear infinite' }}>🔍</div>
                   <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#c084fc' }}>Identifying Student...</h2>
                   <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px', maxWidth: '400px' }}>
-                    Looking at camera... Matching face descriptor against Firestore student database (Jesty's Face ID).
+                    Looking at camera... Matching face descriptor against student database.
                   </p>
                 </>
               )}
