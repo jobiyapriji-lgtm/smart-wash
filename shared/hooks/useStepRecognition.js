@@ -27,6 +27,7 @@ export function useStepRecognition({
   const animFrameRef = useRef(null);
   const canvasRef = useRef(null);
   const lastFrameDataRef = useRef(null);
+  const isHandsMovingRef = useRef(true);
   const onStepCompletedRef = useRef(onStepCompleted);
 
   useEffect(() => {
@@ -51,69 +52,75 @@ export function useStepRecognition({
   const processFrame = useCallback(() => {
     if (!enabled || !engineRef.current) return;
 
-    setIsProcessing(true);
-
-    // Live video motion analyzer
-    const video = videoRef?.current;
-    if (video && !video.paused && !video.ended && video.readyState >= 2) {
-      if (!canvasRef.current) {
-        canvasRef.current = document.createElement('canvas');
-        canvasRef.current.width = 64;
-        canvasRef.current.height = 48;
-      }
-
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, 64, 48);
-        const currentFrame = ctx.getImageData(0, 0, 64, 48);
-        const data = currentFrame.data;
-
-        if (lastFrameDataRef.current) {
-          const lastData = lastFrameDataRef.current;
-          let diffSum = 0;
-          // Analyze lower region where hands are positioned during washing
-          const startIdx = Math.floor(data.length * 0.4);
-          for (let i = startIdx; i < data.length; i += 8) {
-            const diff = Math.abs(data[i] - lastData[i]);
-            diffSum += diff;
-          }
-
-          const motionIntensity = diffSum / ((data.length - startIdx) / 8);
-          const moving = motionIntensity > 8; // Hand movement threshold
-          setIsHandsMoving(moving);
-
-          // Simulated 21-point landmark array with realistic hand motion jitter
-          const landmarks = new Array(63).fill(0);
-          for (let k = 0; k < 21; k++) {
-            landmarks[k * 3] = (k % 5) * 0.15 + (moving ? (Math.random() - 0.5) * 0.05 : 0);
-            landmarks[k * 3 + 1] = Math.floor(k / 5) * 0.2 + (moving ? (Math.random() - 0.5) * 0.05 : 0);
-            landmarks[k * 3 + 2] = (moving ? Math.sin(Date.now() * 0.005 + k) * 0.1 : 0);
-          }
-          engineRef.current.pushFrame(landmarks);
+    try {
+      const video = videoRef?.current;
+      if (video && !video.paused && !video.ended && video.readyState >= 2) {
+        if (!canvasRef.current) {
+          canvasRef.current = document.createElement('canvas');
+          canvasRef.current.width = 64;
+          canvasRef.current.height = 48;
         }
 
-        lastFrameDataRef.current = data;
-      }
-    }
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (ctx && video.videoWidth > 0 && video.videoHeight > 0) {
+          ctx.drawImage(video, 0, 0, 64, 48);
+          const currentFrame = ctx.getImageData(0, 0, 64, 48);
+          const data = currentFrame.data;
 
-    const result = engineRef.current.predict();
-    setConfidence(isHandsMoving ? Math.max(0.85, result.confidence) : 0.45);
+          if (lastFrameDataRef.current) {
+            const lastData = lastFrameDataRef.current;
+            let diffSum = 0;
+            const startIdx = Math.floor(data.length * 0.4);
+            for (let i = startIdx; i < data.length; i += 8) {
+              diffSum += Math.abs(data[i] - lastData[i]);
+            }
+
+            const motionIntensity = diffSum / ((data.length - startIdx) / 8);
+            const moving = motionIntensity > 6;
+            isHandsMovingRef.current = moving;
+            setIsHandsMoving(moving);
+
+            const landmarks = new Array(63).fill(0);
+            for (let k = 0; k < 21; k++) {
+              landmarks[k * 3] = (k % 5) * 0.15 + (moving ? (Math.random() - 0.5) * 0.05 : 0);
+              landmarks[k * 3 + 1] = Math.floor(k / 5) * 0.2 + (moving ? (Math.random() - 0.5) * 0.05 : 0);
+              landmarks[k * 3 + 2] = (moving ? Math.sin(Date.now() * 0.005 + k) * 0.1 : 0);
+            }
+            engineRef.current.pushFrame(landmarks);
+          }
+
+          lastFrameDataRef.current = data;
+        }
+      }
+
+      const result = engineRef.current.predict();
+      const currentConf = isHandsMovingRef.current ? Math.max(0.85, result.confidence) : 0.45;
+      setConfidence(currentConf);
+    } catch (err) {
+      console.warn('[useStepRecognition] Video analysis frame error:', err.message);
+    }
 
     if (enabled) {
       animFrameRef.current = requestAnimationFrame(processFrame);
     }
-  }, [enabled, videoRef, isHandsMoving]);
+  }, [enabled, videoRef]);
 
   useEffect(() => {
     if (enabled) {
-      processFrame();
+      setIsProcessing(true);
+      animFrameRef.current = requestAnimationFrame(processFrame);
     } else {
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
       }
       setIsProcessing(false);
     }
+    return () => {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+    };
   }, [enabled, processFrame]);
 
   const resetTracker = useCallback(() => {
