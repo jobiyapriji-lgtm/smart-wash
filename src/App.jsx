@@ -33,9 +33,14 @@ class ErrorBoundary extends React.Component {
           <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0', color: '#f87171' }}>
             Kiosk Vision Recovered
           </h2>
-          <p style={{ color: '#94a3b8', fontSize: '14px', maxWidth: '440px', marginBottom: '24px' }}>
+          <p style={{ color: '#94a3b8', fontSize: '14px', maxWidth: '440px', marginBottom: '16px' }}>
             The AI engine encountered a temporary video frame glitch. Click below to restart your session smoothly.
           </p>
+          {this.state.error && (
+            <div style={{ padding: '8px 16px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '8px', color: '#fca5a5', fontSize: '12px', marginBottom: '20px', fontFamily: 'monospace' }}>
+              {this.state.error.message || String(this.state.error)}
+            </div>
+          )}
           <button
             onClick={() => {
               this.setState({ hasError: false, error: null });

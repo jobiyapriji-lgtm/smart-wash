@@ -22,29 +22,30 @@ export function WashingView({
   useEffect(() => {
     setStepTimer(0);
     const interval = setInterval(() => {
-      setStepTimer(prev => {
-        const nextTime = prev + 1;
-        if (nextTime >= recDuration) {
-          if (onStepCompleteRef.current) {
-            onStepCompleteRef.current({
-              stepNumber: activeStep,
-              durationMs: recDuration * 1000,
-              avgConfidence: confidenceRef.current || 0.9,
-              completed: true
-            });
-          }
-          if (activeStep >= 6 && onFinishWashingRef.current) {
-            setTimeout(() => {
-              if (onFinishWashingRef.current) onFinishWashingRef.current();
-            }, 800);
-          }
-        }
-        return nextTime;
-      });
+      setStepTimer(prev => prev + 1);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeStep, recDuration]);
+  }, [activeStep]);
+
+  useEffect(() => {
+    if (stepTimer >= recDuration && stepTimer > 0) {
+      if (onStepCompleteRef.current) {
+        onStepCompleteRef.current({
+          stepNumber: activeStep,
+          durationMs: recDuration * 1000,
+          avgConfidence: confidenceRef.current || 0.9,
+          completed: true
+        });
+      }
+      if (activeStep >= 6 && onFinishWashingRef.current) {
+        const finishTimer = setTimeout(() => {
+          if (onFinishWashingRef.current) onFinishWashingRef.current();
+        }, 800);
+        return () => clearTimeout(finishTimer);
+      }
+    }
+  }, [stepTimer, recDuration, activeStep]);
 
   const progressPercent = Math.min(100, Math.round((stepTimer / recDuration) * 100));
 
