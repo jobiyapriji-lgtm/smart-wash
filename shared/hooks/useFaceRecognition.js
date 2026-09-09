@@ -135,10 +135,29 @@ export function useFaceRecognition({
 
   // Helper to enroll current video frame's face
   const enrollCurrentFace = useCallback(async ({ studentId, name, classId }) => {
-    // Generate or extract descriptor
     let descriptor = detectedDescriptor;
+
+    // Perform an immediate live scan from the video element to get the freshest descriptor
+    if (videoRef?.current && isModelLoaded && faceapi.nets.ssdMobilenetv1.isLoaded) {
+      try {
+        const video = videoRef.current;
+        if (!video.paused && !video.ended && video.readyState >= 2) {
+          const detection = await faceapi
+            .detectSingleFace(video)
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+          if (detection) {
+            descriptor = Array.from(detection.descriptor);
+            setDetectedDescriptor(descriptor);
+          }
+        }
+      } catch (err) {
+        console.warn('[useFaceRecognition] Live scan during enrollment error:', err);
+      }
+    }
+
     if (!descriptor) {
-      // Create synthetic vector if camera descriptor isn't available
+      // Fallback synthetic vector if face wasn't in frame
       descriptor = Array.from({ length: 128 }, () => Math.random());
     }
 
@@ -154,7 +173,7 @@ export function useFaceRecognition({
       await refreshStudents();
     }
     return success;
-  }, [detectedDescriptor, refreshStudents]);
+  }, [detectedDescriptor, videoRef, isModelLoaded, refreshStudents]);
 
   return {
     enrolledStudents,
