@@ -117,7 +117,10 @@ export function KioskCamera({
         {/* Center Face ID / Landmark Bounding Box Overlay */}
         {state === 'identifying' && (
           <div style={{
-            alignSelf: 'center',
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
             width: '240px',
             height: '280px',
             borderRadius: '120px',

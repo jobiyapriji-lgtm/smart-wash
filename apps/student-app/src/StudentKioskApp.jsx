@@ -13,7 +13,7 @@ export function StudentKioskApp({ useMock = true }) {
   const videoRef = useRef(null);
 
   // 1. Jesty's Face ID Hook
-  const { matchedStudent, confidence: faceConfidence } = useFaceRecognition({
+  const { matchedStudent, confidence: faceConfidence, enrollCurrentFace } = useFaceRecognition({
     videoRef,
     enabled: state.currentState === KIOSK_STATES.IDENTIFYING,
     useMock
@@ -209,26 +209,45 @@ export function StudentKioskApp({ useMock = true }) {
                 Looking at camera... Matching face descriptor against Firestore student database (Jesty's Face ID).
               </p>
               {useMock && (
-                <button
-                  onClick={() => dispatch({
-                    type: 'STUDENT_IDENTIFIED',
-                    payload: {
-                      student: { studentId: 'STU_101', name: 'Demo Student' },
-                      sessionId: `session_${Date.now()}`
-                    }
-                  })}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    border: '1px dashed #c084fc',
-                    background: 'rgba(192, 132, 252, 0.1)',
-                    color: '#e9d5ff',
-                    fontSize: '12px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Simulate Face Recognized ➔
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => dispatch({
+                      type: 'STUDENT_IDENTIFIED',
+                      payload: {
+                        student: { studentId: 'STU_101', name: 'Demo Student' },
+                        sessionId: `session_${Date.now()}`
+                      }
+                    })}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      border: '1px dashed #c084fc',
+                      background: 'rgba(192, 132, 252, 0.1)',
+                      color: '#e9d5ff',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Simulate Face Recognized ➔
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const success = await enrollCurrentFace({ studentId: 'STU_ME', name: 'Jesty', classId: 'Demo' });
+                      if (success) alert('Face enrolled successfully! Please look at the camera again to be identified.');
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      border: '1px solid #10b981',
+                      background: 'rgba(16, 185, 129, 0.2)',
+                      color: '#34d399',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Enroll My Face
+                  </button>
+                </div>
               )}
             </div>
           )}
