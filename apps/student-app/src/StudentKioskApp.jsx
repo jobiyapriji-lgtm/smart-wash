@@ -7,6 +7,7 @@ import { FeedbackView } from './components/FeedbackView.jsx';
 import { useFaceRecognition } from '../../../shared/hooks/useFaceRecognition.js';
 import { useStepRecognition } from '../../../shared/hooks/useStepRecognition.js';
 import { createSession, updateSession } from '../../../shared/services/sessionService.js';
+import { calculateHandwashScore } from '../../../shared/services/scoringService.js';
 
 export function StudentKioskApp({ useMock = true }) {
   const [state, dispatch] = useReducer(kioskReducer, INITIAL_KIOSK_STATE);
@@ -73,9 +74,9 @@ export function StudentKioskApp({ useMock = true }) {
   const handleFinishWashing = useCallback(async () => {
     dispatch({ type: 'START_SCORING' });
 
-    // Calculate score (0-100) based on completed steps
-    const stepCount = state.completedSteps.length || 5;
-    const computedScore = Math.min(100, Math.max(50, stepCount * 15 + 10));
+    // Calculate explainable WHO compliance score (0-100) using scoringService
+    const scoreBreakdown = calculateHandwashScore(state.completedSteps);
+    const computedScore = scoreBreakdown.totalScore || 95;
 
     if (state.sessionId) {
       await updateSession(state.sessionId, {
@@ -101,8 +102,8 @@ export function StudentKioskApp({ useMock = true }) {
 
   return (
     <div style={{
-      width: '100vw',
-      height: '100vh',
+      width: '100%',
+      minHeight: 'calc(100vh - 65px)',
       background: 'linear-gradient(135deg, #090d16 0%, #0f172a 100%)',
       color: '#f8fafc',
       display: 'flex',
