@@ -22,7 +22,8 @@ export function StudentKioskApp({ useMock = true }) {
   // When face recognized: transition to WASHING
   React.useEffect(() => {
     if (state.currentState === KIOSK_STATES.IDENTIFYING && matchedStudent) {
-      async function initStudentSession() {
+      // Delay the transition by 2.5 seconds so the user can clearly see their name recognized
+      const timer = setTimeout(async () => {
         const result = await createSession(matchedStudent.studentId, matchedStudent.name);
         dispatch({
           type: 'STUDENT_IDENTIFIED',
@@ -31,8 +32,9 @@ export function StudentKioskApp({ useMock = true }) {
             sessionId: result.id
           }
         });
-      }
-      initStudentSession();
+      }, 2500);
+      
+      return () => clearTimeout(timer);
     }
   }, [state.currentState, matchedStudent]);
 
@@ -161,7 +163,7 @@ export function StudentKioskApp({ useMock = true }) {
           state={state.currentState}
           activeStep={activeStep}
           confidence={stepConfidence || faceConfidence}
-          student={state.student}
+          student={state.student || matchedStudent}
         />
 
         {/* Right Column: Dynamic State Views */}
@@ -203,12 +205,25 @@ export function StudentKioskApp({ useMock = true }) {
 
           {state.currentState === KIOSK_STATES.IDENTIFYING && (
             <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-              <div style={{ fontSize: '56px', animation: 'spin 2s linear infinite' }}>🔍</div>
-              <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#c084fc' }}>Identifying Student...</h2>
-              <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px', maxWidth: '400px' }}>
-                Looking at camera... Matching face descriptor against Firestore student database (Jesty's Face ID).
-              </p>
-              {useMock && (
+              {matchedStudent ? (
+                <>
+                  <div style={{ fontSize: '56px', textShadow: '0 0 20px rgba(16, 185, 129, 0.5)' }}>✅</div>
+                  <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#10b981' }}>Identity Confirmed!</h2>
+                  <p style={{ margin: 0, color: '#94a3b8', fontSize: '16px', maxWidth: '400px' }}>
+                    Welcome back, <strong style={{ color: '#ffffff', fontSize: '18px' }}>{matchedStudent.name}</strong>.<br/><br/>
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>Starting your handwashing session...</span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: '56px', animation: 'spin 2s linear infinite' }}>🔍</div>
+                  <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#c084fc' }}>Identifying Student...</h2>
+                  <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px', maxWidth: '400px' }}>
+                    Looking at camera... Matching face descriptor against Firestore student database (Jesty's Face ID).
+                  </p>
+                </>
+              )}
+              {useMock && !matchedStudent && (
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button
                     onClick={() => dispatch({
