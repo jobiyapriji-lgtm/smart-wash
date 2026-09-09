@@ -9,6 +9,7 @@ export function WashingView({
 }) {
   const currentStepInfo = WHO_STEPS_INFO[activeStep] || WHO_STEPS_INFO[1];
   const recDuration = (currentStepInfo.recommendedDurationMs || 6000) / 1000;
+  const [stepTimer, setStepTimer] = useState(0);
   const onStepCompleteRef = React.useRef(onStepComplete);
   const onFinishWashingRef = React.useRef(onFinishWashing);
   const confidenceRef = React.useRef(confidence);
