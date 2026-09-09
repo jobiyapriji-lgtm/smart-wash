@@ -171,7 +171,7 @@ export function StudentKioskApp({ useMock = true }) {
         <KioskCamera
           videoRef={videoRef}
           state={state.currentState}
-          activeStep={activeStep}
+          activeStep={activeWashingStep}
           confidence={stepConfidence || faceConfidence}
           student={state.student || matchedStudent}
         />

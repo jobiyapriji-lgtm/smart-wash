@@ -9,7 +9,15 @@ export function WashingView({
 }) {
   const currentStepInfo = WHO_STEPS_INFO[activeStep] || WHO_STEPS_INFO[1];
   const recDuration = (currentStepInfo.recommendedDurationMs || 6000) / 1000;
-  const [stepTimer, setStepTimer] = useState(0);
+  const onStepCompleteRef = React.useRef(onStepComplete);
+  const onFinishWashingRef = React.useRef(onFinishWashing);
+  const confidenceRef = React.useRef(confidence);
+
+  React.useEffect(() => {
+    onStepCompleteRef.current = onStepComplete;
+    onFinishWashingRef.current = onFinishWashing;
+    confidenceRef.current = confidence;
+  });
 
   useEffect(() => {
     setStepTimer(0);
@@ -17,16 +25,18 @@ export function WashingView({
       setStepTimer(prev => {
         const nextTime = prev + 1;
         if (nextTime >= recDuration) {
-          if (onStepComplete) {
-            onStepComplete({
+          if (onStepCompleteRef.current) {
+            onStepCompleteRef.current({
               stepNumber: activeStep,
               durationMs: recDuration * 1000,
-              avgConfidence: confidence || 0.9,
+              avgConfidence: confidenceRef.current || 0.9,
               completed: true
             });
           }
-          if (activeStep >= 6 && onFinishWashing) {
-            setTimeout(onFinishWashing, 800);
+          if (activeStep >= 6 && onFinishWashingRef.current) {
+            setTimeout(() => {
+              if (onFinishWashingRef.current) onFinishWashingRef.current();
+            }, 800);
           }
         }
         return nextTime;
@@ -34,7 +44,7 @@ export function WashingView({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeStep, recDuration, onStepComplete, onFinishWashing, confidence]);
+  }, [activeStep, recDuration]);
 
   const progressPercent = Math.min(100, Math.round((stepTimer / recDuration) * 100));
 
