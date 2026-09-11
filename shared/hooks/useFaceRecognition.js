@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import * as faceapi from '@vladmandic/face-api';
 import { getAllStudents, matchFaceDescriptor, enrollStudent } from '../services/studentService.js';
 
 export function useFaceRecognition({
@@ -20,7 +21,7 @@ export function useFaceRecognition({
   const [distance, setDistance] = useState(Infinity);
   const [confidence, setConfidence] = useState(0);
   const [isDetecting, setIsDetecting] = useState(false);
-  const [isModelLoaded, setIsModelLoaded] = useState(true); // Default true (with dynamic model fallback)
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [detectedDescriptor, setDetectedDescriptor] = useState(null);
   const [error, setError] = useState(null);
 
@@ -43,9 +44,29 @@ export function useFaceRecognition({
     refreshStudents();
   }, [refreshStudents]);
 
+  // Load face-api models
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const MODEL_URL = '/models';
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+        setIsModelLoaded(true);
+        console.log('[useFaceRecognition] Models loaded successfully');
+      } catch (err) {
+        console.error('[useFaceRecognition] Error loading models:', err);
+        setError('Failed to load face recognition models.');
+      }
+    };
+    loadModels();
+  }, []);
+
   // Main facial scan loop
   const performScan = useCallback(async () => {
-    if (!enabled || !videoRef?.current) return;
+    if (!enabled || !videoRef?.current || !isModelLoaded) return;
 
     setIsDetecting(true);
     try {
@@ -55,9 +76,9 @@ export function useFaceRecognition({
         return;
       }
 
-      // If face-api.js window object or loaded library is present, perform face-api detection
-      if (window.faceapi && window.faceapi.nets?.ssdMobilenetv1?.params) {
-        const detection = await window.faceapi
+      // Perform face-api detection if models are loaded
+      if (faceapi.nets.ssdMobilenetv1.isLoaded) {
+        const detection = await faceapi
           .detectSingleFace(video)
           .withFaceLandmarks()
           .withFaceDescriptor();
@@ -81,11 +102,11 @@ export function useFaceRecognition({
     } finally {
       setIsDetecting(false);
     }
-  }, [enabled, videoRef, enrolledStudents, distanceThreshold]);
+  }, [enabled, videoRef, enrolledStudents, distanceThreshold, isModelLoaded]);
 
   // Interval loop
   useEffect(() => {
-    if (enabled && videoRef?.current) {
+    if (enabled && videoRef?.current && isModelLoaded) {
       scanTimerRef.current = setInterval(performScan, scanIntervalMs);
     } else {
       if (scanTimerRef.current) clearInterval(scanTimerRef.current);
@@ -93,7 +114,7 @@ export function useFaceRecognition({
     return () => {
       if (scanTimerRef.current) clearInterval(scanTimerRef.current);
     };
-  }, [enabled, videoRef, scanIntervalMs, performScan]);
+  }, [enabled, videoRef, scanIntervalMs, performScan, isModelLoaded]);
 
   // Helper for quick simulation/testing in dev environments
   const simulateDetection = useCallback((studentId) => {
@@ -114,10 +135,29 @@ export function useFaceRecognition({
 
   // Helper to enroll current video frame's face
   const enrollCurrentFace = useCallback(async ({ studentId, name, classId }) => {
-    // Generate or extract descriptor
     let descriptor = detectedDescriptor;
+
+    // Perform an immediate live scan from the video element to get the freshest descriptor
+    if (videoRef?.current && isModelLoaded && faceapi.nets.ssdMobilenetv1.isLoaded) {
+      try {
+        const video = videoRef.current;
+        if (!video.paused && !video.ended && video.readyState >= 2) {
+          const detection = await faceapi
+            .detectSingleFace(video)
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+          if (detection) {
+            descriptor = Array.from(detection.descriptor);
+            setDetectedDescriptor(descriptor);
+          }
+        }
+      } catch (err) {
+        console.warn('[useFaceRecognition] Live scan during enrollment error:', err);
+      }
+    }
+
     if (!descriptor) {
-      // Create synthetic vector if camera descriptor isn't available
+      // Fallback synthetic vector if face wasn't in frame
       descriptor = Array.from({ length: 128 }, () => Math.random());
     }
 
@@ -133,7 +173,7 @@ export function useFaceRecognition({
       await refreshStudents();
     }
     return success;
-  }, [detectedDescriptor, refreshStudents]);
+  }, [detectedDescriptor, videoRef, isModelLoaded, refreshStudents]);
 
   return {
     enrolledStudents,

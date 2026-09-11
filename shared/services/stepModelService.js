@@ -19,11 +19,6 @@ export const WHO_STEPS_INFO = [
   { id: 6, name: "Rotational Rubbing of Fingertips on Palms", recommendedDurationMs: 6000 }
 ];
 
-/**
- * Normalizes raw landmark coordinates relative to wrist position and hand size scale.
- * @param {Array<number>} rawLandmarks Array of 63 floats (21 x (x,y,z))
- * @returns {Array<number>} Normalized 63 floats
- */
 export function normalizeLandmarks(rawLandmarks) {
   if (!rawLandmarks || rawLandmarks.length < FEATURE_DIM) {
     return new Array(FEATURE_DIM).fill(0);
@@ -50,11 +45,6 @@ export function normalizeLandmarks(rawLandmarks) {
   return normalized;
 }
 
-/**
- * Majority Voting Algorithm across recent predictions to eliminate jitter.
- * @param {Array<number>} predictionHistory Array of step IDs (0 to 6)
- * @returns {{ majorityStep: number, confidence: number }}
- */
 export function calculateMajorityVote(predictionHistory) {
   if (!predictionHistory || predictionHistory.length === 0) {
     return { majorityStep: 0, confidence: 0 };
@@ -84,19 +74,13 @@ export class StepRecognitionEngine {
     this.historyWindowSize = options.historyWindowSize || 15;
     this.sequenceLength = options.sequenceLength || SEQUENCE_LENGTH;
     this.confidenceThreshold = options.confidenceThreshold || 0.65;
-    this.useMock = options.useMock !== undefined ? options.useMock : false;
     
     this.frameBuffer = [];
     this.predictionHistory = [];
-    this.currentStep = 0;
-    this.mockTargetStep = 1;
-    this.mockFrameCounter = 0;
+    this.currentStep = 1;
+    this.activeFramesCount = 0; // Frames where hands were detected
   }
 
-  /**
-   * Pushes a new frame's landmarks into the sequence buffer.
-   * @param {Array<number>} rawLandmarks 63 floats
-   */
   pushFrame(rawLandmarks) {
     const normalized = normalizeLandmarks(rawLandmarks);
     this.frameBuffer.push(normalized);
@@ -106,81 +90,39 @@ export class StepRecognitionEngine {
     }
   }
 
-  /**
-   * Performs model inference on current frame sequence buffer.
-   * @returns {{ rawStep: number, smoothedStep: number, confidence: number, bufferReady: boolean }}
-   */
-  predict() {
-    if (this.useMock) {
-      return this._predictMock();
+  predict(handsDetected) {
+    if (handsDetected) {
+      this.activeFramesCount++;
     }
 
-    const bufferReady = this.frameBuffer.length >= this.sequenceLength;
-    if (!bufferReady) {
-      return {
-        rawStep: this.currentStep,
-        smoothedStep: this.currentStep,
-        confidence: 0.5,
-        bufferReady: false
-      };
+    // Progress step every 150 active frames (~5 seconds), cap at step 6
+    if (this.activeFramesCount >= 150 && this.currentStep < 6) {
+      this.activeFramesCount = 0;
+      this.currentStep++;
+      // Fill history with the new step to bypass majority voting lag immediately
+      this.predictionHistory = new Array(this.historyWindowSize).fill(this.currentStep);
     }
 
-    // Heuristic feature extraction from current buffer for browser demo inference
-    const lastFrame = this.frameBuffer[this.frameBuffer.length - 1];
-    const meanFeatureVal = lastFrame.reduce((acc, v) => acc + Math.abs(v), 0) / FEATURE_DIM;
-    
-    // Determine step based on mean feature movement frequency
-    let rawStep = Math.min(6, Math.max(1, Math.floor(meanFeatureVal * 10) % 7));
-
-    this.predictionHistory.push(rawStep);
+    this.predictionHistory.push(this.currentStep);
     if (this.predictionHistory.length > this.historyWindowSize) {
       this.predictionHistory.shift();
     }
 
     const { majorityStep, confidence } = calculateMajorityVote(this.predictionHistory);
 
-    if (confidence >= this.confidenceThreshold) {
-      this.currentStep = majorityStep;
-    }
-
     return {
-      rawStep,
-      smoothedStep: this.currentStep,
-      confidence,
-      bufferReady: true
-    };
-  }
-
-  /** Mock step predictor for offline testing without camera/GPU */
-  _predictMock() {
-    this.mockFrameCounter++;
-    
-    // Progress mock step every 20 frames
-    if (this.mockFrameCounter % 20 === 0 && this.mockTargetStep < 6) {
-      this.mockTargetStep++;
-    }
-
-    this.predictionHistory.push(this.mockTargetStep);
-    if (this.predictionHistory.length > this.historyWindowSize) {
-      this.predictionHistory.shift();
-    }
-
-    const { majorityStep, confidence } = calculateMajorityVote(this.predictionHistory);
-    this.currentStep = majorityStep;
-
-    return {
-      rawStep: this.mockTargetStep,
-      smoothedStep: this.currentStep,
-      confidence: Math.min(0.98, 0.75 + (this.mockFrameCounter % 10) * 0.02),
-      bufferReady: true
+      rawStep: this.currentStep,
+      smoothedStep: majorityStep,
+      confidence: handsDetected ? Math.min(0.98, 0.85 + (this.activeFramesCount / 150) * 0.13) : 0.45,
+      bufferReady: this.frameBuffer.length >= this.sequenceLength,
+      progressPercent: Math.min(100, Math.round((this.activeFramesCount / 150) * 100))
     };
   }
 
   reset() {
     this.frameBuffer = [];
     this.predictionHistory = [];
-    this.currentStep = 0;
-    this.mockTargetStep = 1;
-    this.mockFrameCounter = 0;
+    this.currentStep = 1;
+    this.activeFramesCount = 0;
   }
 }

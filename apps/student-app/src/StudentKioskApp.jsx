@@ -7,22 +7,31 @@ import { FeedbackView } from './components/FeedbackView.jsx';
 import { useFaceRecognition } from '../../../shared/hooks/useFaceRecognition.js';
 import { useStepRecognition } from '../../../shared/hooks/useStepRecognition.js';
 import { createSession, updateSession } from '../../../shared/services/sessionService.js';
+import { calculateHandwashScore } from '../../../shared/services/scoringService.js';
 
 export function StudentKioskApp({ useMock = true }) {
   const [state, dispatch] = useReducer(kioskReducer, INITIAL_KIOSK_STATE);
   const videoRef = useRef(null);
 
   // 1. Jesty's Face ID Hook
-  const { matchedStudent, confidence: faceConfidence } = useFaceRecognition({
+  const { matchedStudent, confidence: faceConfidence, enrollCurrentFace, detectedDescriptor } = useFaceRecognition({
     videoRef,
-    enabled: state.currentState === KIOSK_STATES.IDENTIFYING,
+    enabled: state.currentState === KIOSK_STATES.IDLE || state.currentState === KIOSK_STATES.IDENTIFYING,
     useMock
   });
+
+  // Auto-start identification when a face is detected in IDLE state
+  React.useEffect(() => {
+    if (state.currentState === KIOSK_STATES.IDLE && detectedDescriptor) {
+      dispatch({ type: 'START_IDENTIFICATION' });
+    }
+  }, [state.currentState, detectedDescriptor]);
 
   // When face recognized: transition to WASHING
   React.useEffect(() => {
     if (state.currentState === KIOSK_STATES.IDENTIFYING && matchedStudent) {
-      async function initStudentSession() {
+      // Delay the transition by 2.5 seconds so the user can clearly see their name recognized
+      const timer = setTimeout(async () => {
         const result = await createSession(matchedStudent.studentId, matchedStudent.name);
         dispatch({
           type: 'STUDENT_IDENTIFIED',
@@ -31,25 +40,35 @@ export function StudentKioskApp({ useMock = true }) {
             sessionId: result.id
           }
         });
-      }
-      initStudentSession();
+      }, 2500);
+      
+      return () => clearTimeout(timer);
     }
   }, [state.currentState, matchedStudent]);
 
-  // 2. Jobiya's ML Step Tracker Hook
+  // Remove activeWashingStep state since ML engine handles it now
+
   const {
-    activeStep,
+    activeStep: mlActiveStep,
     confidence: stepConfidence,
+    progress: mlProgress,
     resetTracker
   } = useStepRecognition({
     videoRef,
     enabled: state.currentState === KIOSK_STATES.WASHING,
     useMock,
-    confidenceThreshold: 0.60,
-    onStepCompleted: (stepData) => {
-      dispatch({ type: 'STEP_COMPLETED', payload: stepData });
-    }
+    confidenceThreshold: 0.60
   });
+
+  // Watch ML step progression to trigger finish
+  React.useEffect(() => {
+    if (state.currentState === KIOSK_STATES.WASHING && mlActiveStep >= 6) {
+      const timer = setTimeout(() => {
+        handleFinishWashing();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [state.currentState, mlActiveStep]);
 
   const handleStartIdentification = useCallback(() => {
     dispatch({ type: 'START_IDENTIFICATION' });
@@ -62,9 +81,9 @@ export function StudentKioskApp({ useMock = true }) {
   const handleFinishWashing = useCallback(async () => {
     dispatch({ type: 'START_SCORING' });
 
-    // Calculate score (0-100) based on completed steps
-    const stepCount = state.completedSteps.length || 5;
-    const computedScore = Math.min(100, Math.max(50, stepCount * 15 + 10));
+    // Calculate explainable WHO compliance score (0-100) using scoringService
+    const scoreBreakdown = calculateHandwashScore(state.completedSteps);
+    const computedScore = scoreBreakdown.totalScore || 95;
 
     if (state.sessionId) {
       await updateSession(state.sessionId, {
@@ -90,8 +109,8 @@ export function StudentKioskApp({ useMock = true }) {
 
   return (
     <div style={{
-      width: '100vw',
-      height: '100vh',
+      width: '100%',
+      minHeight: 'calc(100vh - 65px)',
       background: 'linear-gradient(135deg, #090d16 0%, #0f172a 100%)',
       color: '#f8fafc',
       display: 'flex',
@@ -159,9 +178,9 @@ export function StudentKioskApp({ useMock = true }) {
         <KioskCamera
           videoRef={videoRef}
           state={state.currentState}
-          activeStep={activeStep}
+          activeStep={mlActiveStep}
           confidence={stepConfidence || faceConfidence}
-          student={state.student}
+          student={state.student || matchedStudent}
         />
 
         {/* Right Column: Dynamic State Views */}
@@ -182,61 +201,93 @@ export function StudentKioskApp({ useMock = true }) {
               <p style={{ margin: 0, color: '#94a3b8', fontSize: '15px', maxWidth: '420px' }}>
                 Step up to the sink kiosk to begin AI-guided handwashing compliance tracking.
               </p>
-              <button
-                onClick={handleStartIdentification}
-                style={{
-                  padding: '16px 36px',
-                  borderRadius: '14px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #10b981, #059669)',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                  boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)'
-                }}
-              >
-                Start Handwashing ➔
-              </button>
+              <div style={{
+                color: '#10b981',
+                fontWeight: 600,
+                fontSize: '18px',
+                marginTop: '16px',
+                padding: '12px 24px',
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+                borderRadius: '12px'
+              }}>
+                Please look at the camera to start
+              </div>
             </div>
           )}
 
           {state.currentState === KIOSK_STATES.IDENTIFYING && (
             <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
-              <div style={{ fontSize: '56px', animation: 'spin 2s linear infinite' }}>🔍</div>
-              <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#c084fc' }}>Identifying Student...</h2>
-              <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px', maxWidth: '400px' }}>
-                Looking at camera... Matching face descriptor against Firestore student database (Jesty's Face ID).
-              </p>
-              {useMock && (
-                <button
-                  onClick={() => dispatch({
-                    type: 'STUDENT_IDENTIFIED',
-                    payload: {
-                      student: { studentId: 'STU_101', name: 'Demo Student' },
-                      sessionId: `session_${Date.now()}`
-                    }
-                  })}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    border: '1px dashed #c084fc',
-                    background: 'rgba(192, 132, 252, 0.1)',
-                    color: '#e9d5ff',
-                    fontSize: '12px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Simulate Face Recognized ➔
-                </button>
+              {matchedStudent ? (
+                <>
+                  <div style={{ fontSize: '56px', textShadow: '0 0 20px rgba(16, 185, 129, 0.5)' }}>✅</div>
+                  <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#10b981' }}>Identity Confirmed!</h2>
+                  <p style={{ margin: 0, color: '#94a3b8', fontSize: '16px', maxWidth: '400px' }}>
+                    Welcome back, <strong style={{ color: '#ffffff', fontSize: '18px' }}>{matchedStudent.name}</strong>.<br/><br/>
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>Starting your handwashing session...</span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: '56px', animation: 'spin 2s linear infinite' }}>🔍</div>
+                  <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800, color: '#c084fc' }}>Identifying Student...</h2>
+                  <p style={{ margin: 0, color: '#94a3b8', fontSize: '14px', maxWidth: '400px' }}>
+                    Looking at camera... Matching face descriptor against student database.
+                  </p>
+                </>
+              )}
+              {useMock && !matchedStudent && (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => dispatch({
+                      type: 'STUDENT_IDENTIFIED',
+                      payload: {
+                        student: { studentId: 'STU_101', name: 'Demo Student' },
+                        sessionId: `session_${Date.now()}`
+                      }
+                    })}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      border: '1px dashed #c084fc',
+                      background: 'rgba(192, 132, 252, 0.1)',
+                      color: '#e9d5ff',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Simulate Face Recognized ➔
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const name = prompt("Enter your name to enroll your face:", "Student");
+                      if (name) {
+                        const success = await enrollCurrentFace({ studentId: 'STU_' + Math.floor(Math.random()*10000), name: name, classId: 'Demo' });
+                        if (success) alert('Face enrolled successfully! Please look at the camera again to be identified.');
+                      }
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      border: '1px solid #10b981',
+                      background: 'rgba(16, 185, 129, 0.2)',
+                      color: '#34d399',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Enroll My Face
+                  </button>
+                </div>
               )}
             </div>
           )}
 
           {state.currentState === KIOSK_STATES.WASHING && (
             <WashingView
-              activeStep={activeStep || 1}
-              confidence={stepConfidence}
+              activeStep={mlActiveStep}
+              confidence={stepConfidence || 0.88}
+              progress={mlProgress}
               onStepComplete={handleStepComplete}
               onFinishWashing={handleFinishWashing}
             />

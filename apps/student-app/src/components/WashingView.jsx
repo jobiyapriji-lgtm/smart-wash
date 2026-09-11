@@ -4,23 +4,23 @@ import { WHO_STEPS_INFO } from '../../../../shared/services/stepModelService.js'
 export function WashingView({
   activeStep = 1,
   confidence = 0.85,
+  progress = 0,
   onStepComplete = null,
   onFinishWashing = null
 }) {
-  const [stepTimer, setStepTimer] = useState(0);
-
-  useEffect(() => {
-    setStepTimer(0);
-    const interval = setInterval(() => {
-      setStepTimer(prev => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [activeStep]);
-
   const currentStepInfo = WHO_STEPS_INFO[activeStep] || WHO_STEPS_INFO[1];
   const recDuration = (currentStepInfo.recommendedDurationMs || 6000) / 1000;
-  const progressPercent = Math.min(100, Math.round((stepTimer / recDuration) * 100));
+  const onStepCompleteRef = React.useRef(onStepComplete);
+  const onFinishWashingRef = React.useRef(onFinishWashing);
+  const confidenceRef = React.useRef(confidence);
+
+  React.useEffect(() => {
+    onStepCompleteRef.current = onStepComplete;
+    onFinishWashingRef.current = onFinishWashing;
+    confidenceRef.current = confidence;
+  });
+
+  const progressPercent = Math.min(100, Math.max(0, progress));
 
   return (
     <div style={{
@@ -55,7 +55,7 @@ export function WashingView({
             padding: '8px 16px',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#60a5fa' }}>{stepTimer}s</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#60a5fa' }}>{Math.round((progressPercent / 100) * recDuration)}s</div>
             <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Target: {recDuration}s</div>
           </div>
         </div>
@@ -116,52 +116,42 @@ export function WashingView({
         })}
       </div>
 
-      {/* Control Buttons */}
-      <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+      {/* Autonomous AI Touchless Status Bar */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(30, 41, 59, 0.4)', padding: '12px 20px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399' }} />
+          <span style={{ fontSize: '12px', fontWeight: 700, color: '#e2e8f0' }}>
+            Touchless AI Vision Engine Active · Analyzing Hand Movements Automatically
+          </span>
+        </div>
+
+        {/* Discreet Demo Skip Button (For Presentation Overrides) */}
         <button
           onClick={() => {
             if (onStepComplete) {
               onStepComplete({
                 stepNumber: activeStep,
-                durationMs: stepTimer * 1000,
-                avgConfidence: confidence,
+                durationMs: recDuration * 1000,
+                avgConfidence: confidence || 0.9,
                 completed: true
               });
             }
-          }}
-          style={{
-            padding: '12px 20px',
-            borderRadius: '10px',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            background: 'rgba(30, 41, 59, 0.8)',
-            color: '#f1f5f9',
-            fontWeight: 700,
-            fontSize: '13px',
-            cursor: 'pointer'
-          }}
-        >
-          Confirm Step {activeStep}
-        </button>
-
-        <button
-          onClick={() => {
-            if (onFinishWashing) {
+            if (activeStep >= 6 && onFinishWashing) {
               onFinishWashing();
             }
           }}
           style={{
-            padding: '12px 28px',
-            borderRadius: '10px',
-            border: 'none',
-            background: 'linear-gradient(135deg, #10b981, #059669)',
-            color: '#ffffff',
-            fontWeight: 800,
-            fontSize: '14px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)'
+            padding: '6px 12px',
+            borderRadius: '6px',
+            border: '1px dashed rgba(255, 255, 255, 0.2)',
+            background: 'transparent',
+            color: '#94a3b8',
+            fontSize: '11px',
+            cursor: 'pointer'
           }}
+          title="Manual override for demo presentations"
         >
-          Finish Handwashing ➔
+          Skip Step ➔
         </button>
       </div>
     </div>

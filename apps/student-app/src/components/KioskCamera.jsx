@@ -117,19 +117,32 @@ export function KioskCamera({
         {/* Center Face ID / Landmark Bounding Box Overlay */}
         {state === 'identifying' && (
           <div style={{
-            alignSelf: 'center',
-            width: '240px',
-            height: '280px',
-            borderRadius: '120px',
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '320px',
+            height: '390px',
+            borderRadius: '160px',
             border: '3px dashed #a855f7',
             animation: 'pulse 1.5s infinite ease-in-out',
-            boxShadow: '0 0 30px rgba(168, 85, 247, 0.3)',
+            boxShadow: '0 0 35px rgba(168, 85, 247, 0.35)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            flexDirection: 'column'
+            justifyContent: 'flex-end',
+            flexDirection: 'column',
+            paddingBottom: '24px'
           }}>
-            <span style={{ fontSize: '13px', color: '#e9d5ff', fontWeight: 700, background: 'rgba(15,23,42,0.8)', padding: '4px 12px', borderRadius: '12px' }}>
+            <span style={{
+              fontSize: '12px',
+              color: '#e9d5ff',
+              fontWeight: 800,
+              background: 'rgba(15, 23, 42, 0.85)',
+              border: '1px solid rgba(168, 85, 247, 0.4)',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+            }}>
               Position Face in Frame
             </span>
           </div>
@@ -137,28 +150,35 @@ export function KioskCamera({
 
         {state === 'washing' && (
           <div style={{
-            alignSelf: 'center',
-            width: '300px',
-            height: '200px',
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '320px',
+            height: '220px',
             borderRadius: '20px',
-            border: '2px solid #3b82f6',
-            background: 'rgba(59, 130, 246, 0.05)',
+            border: '2px solid rgba(59, 130, 246, 0.6)',
+            background: 'rgba(15, 23, 42, 0.6)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             flexDirection: 'column',
-            backdropFilter: 'blur(2px)'
+            backdropFilter: 'blur(8px)',
+            boxShadow: '0 0 30px rgba(59, 130, 246, 0.25)'
           }}>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '6px' }}>
-              <span style={{ fontSize: '18px' }}>✋</span>
-              <span style={{ fontSize: '18px' }}>🤚</span>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '24px', animation: 'bounce 1s infinite alternate' }}>🧼</span>
+              <span style={{ fontSize: '24px' }}>👐</span>
             </div>
-            <span style={{ fontSize: '13px', color: '#93c5fd', fontWeight: 700 }}>
-              Tracking Hand Landmarks (21 points)
+            <span style={{ fontSize: '14px', color: '#93c5fd', fontWeight: 800 }}>
+              AI Hand Landmark Tracking Active
             </span>
-            <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-              Step {activeStep} · {Math.round(confidence * 100)}% confidence
+            <span style={{ fontSize: '12px', color: '#34d399', marginTop: '4px', fontWeight: 700 }}>
+              Step {activeStep || 1} · {Math.round(confidence * 100)}% ML Confidence
             </span>
+            <div style={{ marginTop: '10px', fontSize: '11px', color: '#94a3b8' }}>
+              21 3D Coordinate Points Locked
+            </div>
           </div>
         )}
 
