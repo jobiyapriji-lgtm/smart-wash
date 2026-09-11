@@ -14,11 +14,18 @@ export function StudentKioskApp({ useMock = true }) {
   const videoRef = useRef(null);
 
   // 1. Jesty's Face ID Hook
-  const { matchedStudent, confidence: faceConfidence, enrollCurrentFace } = useFaceRecognition({
+  const { matchedStudent, confidence: faceConfidence, enrollCurrentFace, detectedDescriptor } = useFaceRecognition({
     videoRef,
-    enabled: state.currentState === KIOSK_STATES.IDENTIFYING,
+    enabled: state.currentState === KIOSK_STATES.IDLE || state.currentState === KIOSK_STATES.IDENTIFYING,
     useMock
   });
+
+  // Auto-start identification when a face is detected in IDLE state
+  React.useEffect(() => {
+    if (state.currentState === KIOSK_STATES.IDLE && detectedDescriptor) {
+      dispatch({ type: 'START_IDENTIFICATION' });
+    }
+  }, [state.currentState, detectedDescriptor]);
 
   // When face recognized: transition to WASHING
   React.useEffect(() => {
@@ -39,28 +46,29 @@ export function StudentKioskApp({ useMock = true }) {
     }
   }, [state.currentState, matchedStudent]);
 
-  const [activeWashingStep, setActiveWashingStep] = React.useState(1);
+  // Remove activeWashingStep state since ML engine handles it now
 
-  React.useEffect(() => {
-    if (state.currentState === KIOSK_STATES.IDLE || state.currentState === KIOSK_STATES.IDENTIFYING) {
-      setActiveWashingStep(1);
-    }
-  }, [state.currentState]);
-
-  // 2. Jobiya's ML Step Tracker Hook
   const {
-    activeStep,
+    activeStep: mlActiveStep,
     confidence: stepConfidence,
+    progress: mlProgress,
     resetTracker
   } = useStepRecognition({
     videoRef,
     enabled: state.currentState === KIOSK_STATES.WASHING,
     useMock,
-    confidenceThreshold: 0.60,
-    onStepCompleted: (stepData) => {
-      dispatch({ type: 'STEP_COMPLETED', payload: stepData });
-    }
+    confidenceThreshold: 0.60
   });
+
+  // Watch ML step progression to trigger finish
+  React.useEffect(() => {
+    if (state.currentState === KIOSK_STATES.WASHING && mlActiveStep >= 6) {
+      const timer = setTimeout(() => {
+        handleFinishWashing();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [state.currentState, mlActiveStep]);
 
   const handleStartIdentification = useCallback(() => {
     dispatch({ type: 'START_IDENTIFICATION' });
@@ -68,7 +76,6 @@ export function StudentKioskApp({ useMock = true }) {
 
   const handleStepComplete = useCallback((stepData) => {
     dispatch({ type: 'STEP_COMPLETED', payload: stepData });
-    setActiveWashingStep(prev => Math.min(6, prev + 1));
   }, []);
 
   const handleFinishWashing = useCallback(async () => {
@@ -171,7 +178,7 @@ export function StudentKioskApp({ useMock = true }) {
         <KioskCamera
           videoRef={videoRef}
           state={state.currentState}
-          activeStep={activeWashingStep}
+          activeStep={mlActiveStep}
           confidence={stepConfidence || faceConfidence}
           student={state.student || matchedStudent}
         />
@@ -194,22 +201,18 @@ export function StudentKioskApp({ useMock = true }) {
               <p style={{ margin: 0, color: '#94a3b8', fontSize: '15px', maxWidth: '420px' }}>
                 Step up to the sink kiosk to begin AI-guided handwashing compliance tracking.
               </p>
-              <button
-                onClick={handleStartIdentification}
-                style={{
-                  padding: '16px 36px',
-                  borderRadius: '14px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #10b981, #059669)',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  fontSize: '16px',
-                  cursor: 'pointer',
-                  boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)'
-                }}
-              >
-                Start Handwashing ➔
-              </button>
+              <div style={{
+                color: '#10b981',
+                fontWeight: 600,
+                fontSize: '18px',
+                marginTop: '16px',
+                padding: '12px 24px',
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+                borderRadius: '12px'
+              }}>
+                Please look at the camera to start
+              </div>
             </div>
           )}
 
@@ -257,8 +260,11 @@ export function StudentKioskApp({ useMock = true }) {
                   </button>
                   <button
                     onClick={async () => {
-                      const success = await enrollCurrentFace({ studentId: 'STU_ME', name: 'Jesty', classId: 'Demo' });
-                      if (success) alert('Face enrolled successfully! Please look at the camera again to be identified.');
+                      const name = prompt("Enter your name to enroll your face:", "Student");
+                      if (name) {
+                        const success = await enrollCurrentFace({ studentId: 'STU_' + Math.floor(Math.random()*10000), name: name, classId: 'Demo' });
+                        if (success) alert('Face enrolled successfully! Please look at the camera again to be identified.');
+                      }
                     }}
                     style={{
                       padding: '8px 16px',
@@ -279,8 +285,9 @@ export function StudentKioskApp({ useMock = true }) {
 
           {state.currentState === KIOSK_STATES.WASHING && (
             <WashingView
-              activeStep={activeWashingStep}
+              activeStep={mlActiveStep}
               confidence={stepConfidence || 0.88}
+              progress={mlProgress}
               onStepComplete={handleStepComplete}
               onFinishWashing={handleFinishWashing}
             />

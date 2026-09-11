@@ -4,12 +4,12 @@ import { WHO_STEPS_INFO } from '../../../../shared/services/stepModelService.js'
 export function WashingView({
   activeStep = 1,
   confidence = 0.85,
+  progress = 0,
   onStepComplete = null,
   onFinishWashing = null
 }) {
   const currentStepInfo = WHO_STEPS_INFO[activeStep] || WHO_STEPS_INFO[1];
   const recDuration = (currentStepInfo.recommendedDurationMs || 6000) / 1000;
-  const [stepTimer, setStepTimer] = useState(0);
   const onStepCompleteRef = React.useRef(onStepComplete);
   const onFinishWashingRef = React.useRef(onFinishWashing);
   const confidenceRef = React.useRef(confidence);
@@ -20,35 +20,7 @@ export function WashingView({
     confidenceRef.current = confidence;
   });
 
-  useEffect(() => {
-    setStepTimer(0);
-    const interval = setInterval(() => {
-      setStepTimer(prev => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [activeStep]);
-
-  useEffect(() => {
-    if (stepTimer >= recDuration && stepTimer > 0) {
-      if (onStepCompleteRef.current) {
-        onStepCompleteRef.current({
-          stepNumber: activeStep,
-          durationMs: recDuration * 1000,
-          avgConfidence: confidenceRef.current || 0.9,
-          completed: true
-        });
-      }
-      if (activeStep >= 6 && onFinishWashingRef.current) {
-        const finishTimer = setTimeout(() => {
-          if (onFinishWashingRef.current) onFinishWashingRef.current();
-        }, 800);
-        return () => clearTimeout(finishTimer);
-      }
-    }
-  }, [stepTimer, recDuration, activeStep]);
-
-  const progressPercent = Math.min(100, Math.round((stepTimer / recDuration) * 100));
+  const progressPercent = Math.min(100, Math.max(0, progress));
 
   return (
     <div style={{
@@ -83,7 +55,7 @@ export function WashingView({
             padding: '8px 16px',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#60a5fa' }}>{stepTimer}s</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#60a5fa' }}>{Math.round((progressPercent / 100) * recDuration)}s</div>
             <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Target: {recDuration}s</div>
           </div>
         </div>
