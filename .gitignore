@@ -4,3 +4,6 @@ dist
 *.log
 .env
 .env.local
+__pycache__/
+*.py[cod]
+runs/

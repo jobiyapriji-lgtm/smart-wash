@@ -42,9 +42,9 @@ export function calculateMajorityVote(predictionHistory) {
 
 export class StepRecognitionEngine {
   constructor(options = {}) {
-    this.historyWindowSize = options.historyWindowSize || 15;
-    this.confidenceThreshold = options.confidenceThreshold || 0.75;
-    this.consecutiveFramesRequired = options.consecutiveFramesRequired || 10;
+    this.historyWindowSize = options.historyWindowSize || 8;
+    this.confidenceThreshold = options.confidenceThreshold !== undefined ? options.confidenceThreshold : 0.40;
+    this.consecutiveFramesRequired = options.consecutiveFramesRequired || 4;
     this.stepTimeoutSeconds = options.stepTimeoutSeconds || 30;
     
     this.predictionHistory = [];

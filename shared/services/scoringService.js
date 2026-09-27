@@ -36,10 +36,11 @@ export function calculateHandwashScore(completedSteps = [], missedSteps = []) {
   let outOfOrderViolations = 0;
   let lastStep = 0;
   for (const step of completedSteps) {
-      if (step < lastStep) {
+      const stepNum = typeof step === 'object' && step !== null ? (step.stepNumber ?? 0) : Number(step);
+      if (stepNum < lastStep) {
           outOfOrderViolations++;
       }
-      lastStep = step;
+      lastStep = stepNum;
   }
   const P_out_of_order = outOfOrderViolations * 10; // 10 point penalty per out of order
   

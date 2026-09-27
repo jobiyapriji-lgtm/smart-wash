@@ -85,7 +85,7 @@ export function StudentKioskApp({ useMock = true }) {
     videoRef,
     enabled: state.currentState === KIOSK_STATES.WASHING,
     useMock,
-    confidenceThreshold: 0.60
+    confidenceThreshold: 0.40
   });
 
 
@@ -241,14 +241,15 @@ export function StudentKioskApp({ useMock = true }) {
               pointerEvents: 'none'
             }}>
               <div style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '8px', borderBottom: '1px solid #ef4444', paddingBottom: '4px' }}>[HANDWASH_DEBUG_HUD]</div>
-              <div>Camera Stream: <span style={{ color: telemetry.camActive ? '#22c55e' : '#ef4444' }}>{telemetry.camActive ? 'ACTIVE (320x320 @ 10fps)' : 'INACTIVE'}</span></div>
+              <div>AI Backend (ws://localhost:4550): <span style={{ color: telemetry.serverStatus === 'CONNECTED' ? '#22c55e' : '#ef4444', fontWeight: 'bold' }}>{telemetry.serverStatus || 'DISCONNECTED'}</span></div>
+              <div>Camera Stream: <span style={{ color: telemetry.camActive ? '#22c55e' : '#ef4444' }}>{telemetry.camActive ? 'ACTIVE (320x320 @ 10fps)' : 'INITIALIZING...'}</span></div>
               <div>Hand Tracker: [Left: <span style={{ color: telemetry.leftHand ? '#22c55e' : '#ef4444' }}>{telemetry.leftHand ? 'YES' : 'NO'}</span> | Right: <span style={{ color: telemetry.rightHand ? '#22c55e' : '#ef4444' }}>{telemetry.rightHand ? 'YES' : 'NO'}</span>]</div>
               <div>Raw Prediction: <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>{telemetry.rawPrediction}</span></div>
               <div>Raw Confidence: <span style={{ color: '#eab308' }}>{(telemetry.rawConfidence || 0).toFixed(2)}</span></div>
               <div>Target Expected Step: <span style={{ color: '#a855f7' }}>{telemetry.expectedStep}</span></div>
               <div>Debounce Counter: {telemetry.debounceCount} / {telemetry.requiredFrames}</div>
-              <div style={{ marginTop: '4px', fontSize: '9px', color: '#9ca3af' }}>Completed: [{state.completedSteps.join(', ')}]</div>
-              <div style={{ fontSize: '9px', color: '#ef4444' }}>Missed: [{missedSteps.join(', ')}]</div>
+              <div style={{ marginTop: '4px', fontSize: '9px', color: '#9ca3af' }}>Completed: [{state.completedSteps.map(s => typeof s === 'object' ? s.stepNumber : s).join(', ')}]</div>
+              <div style={{ fontSize: '9px', color: '#ef4444' }}>Missed: [{missedSteps.map(s => typeof s === 'object' ? s.stepNumber : s).join(', ')}]</div>
             </div>
           )}
         </div>

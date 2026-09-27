@@ -37,7 +37,8 @@ export function useStepRecognition({
     rawConfidence: 0,
     expectedStep: 'Step 1',
     debounceCount: 0,
-    requiredFrames: 10
+    requiredFrames: 8,
+    serverStatus: 'CONNECTING'
   });
 
   const engineRef = useRef(null);
@@ -78,6 +79,7 @@ export function useStepRecognition({
         wsRef.current = null;
       }
       setIsProcessing(false);
+      setTelemetry(prev => ({ ...prev, serverStatus: 'DISCONNECTED' }));
       return;
     }
 
@@ -87,6 +89,7 @@ export function useStepRecognition({
       ws.onopen = () => {
         console.log('[useStepRecognition] WebSocket Connected');
         setIsProcessing(true);
+        setTelemetry(prev => ({ ...prev, serverStatus: 'CONNECTED' }));
       };
 
       ws.onmessage = (event) => {
@@ -102,14 +105,16 @@ export function useStepRecognition({
 
       ws.onerror = (err) => {
         console.error('[useStepRecognition] WebSocket Error:', err);
+        setTelemetry(prev => ({ ...prev, serverStatus: 'ERROR' }));
       };
 
       ws.onclose = () => {
         console.log('[useStepRecognition] WebSocket Disconnected. Reconnecting...');
         setIsProcessing(false);
+        setTelemetry(prev => ({ ...prev, serverStatus: 'RECONNECTING' }));
         if (enabled) {
           reconnectAttempts.current += 1;
-          const backoff = Math.min(30000, 1000 * Math.pow(2, reconnectAttempts.current));
+          const backoff = Math.min(10000, 1000 * Math.pow(1.5, reconnectAttempts.current));
           setTimeout(connectWebSocket, backoff);
         }
       };
@@ -133,7 +138,7 @@ export function useStepRecognition({
     
     // We expect prediction format: { class: "Step X", confidence: 0.85 }
     // Pass it to our state machine engine
-    const isMoving = prediction.class !== "background" && prediction.confidence > 0.4;
+    const isMoving = prediction.class !== "background" && prediction.confidence > 0.35;
     setIsHandsMoving(isMoving);
 
     // [HANDWASH_DEBUG] format
@@ -148,7 +153,10 @@ export function useStepRecognition({
       rawConfidence: prediction.confidence,
       expectedStep: expectedString,
       debounceCount: frameStreak,
-      requiredFrames: engineRef.current.historyWindowSize
+      requiredFrames: engineRef.current.historyWindowSize,
+      leftHand: isMoving,
+      rightHand: isMoving,
+      serverStatus: 'CONNECTED'
     }));
 
     const result = engineRef.current.predict(prediction, timestamp);
@@ -177,11 +185,13 @@ export function useStepRecognition({
 
   // Frame Capture Loop
   const sendFrame = useCallback(() => {
+    const video = videoRef?.current;
+    const isVideoPlaying = video && !video.paused && !video.ended && video.readyState >= 2;
+    setTelemetry(prev => ({ ...prev, camActive: !!isVideoPlaying }));
+
     if (!enabled || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     
-    const video = videoRef?.current;
-    if (video && !video.paused && !video.ended && video.readyState >= 2) {
-      setTelemetry(prev => ({ ...prev, camActive: true }));
+    if (isVideoPlaying && ctxRef.current && canvasRef.current) {
       // Draw to offscreen canvas
       ctxRef.current.drawImage(video, 0, 0, 320, 320);
       

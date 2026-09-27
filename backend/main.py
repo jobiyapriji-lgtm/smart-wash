@@ -6,10 +6,16 @@ import numpy as np
 import base64
 import time
 
-from .app import inferance
-from .utils.frame_combiner import combine_frames
+try:
+    from .app import inferance
+    from .utils.frame_combiner import combine_frames
+except (ImportError, ValueError):
+    from app import inferance
+    from utils.frame_combiner import combine_frames
 
 app = FastAPI()
+
+infr = inferance()
 
 app.add_middleware(
     CORSMiddleware,
@@ -22,7 +28,6 @@ app.add_middleware(
 @app.websocket("/ws_model")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    infr = inferance()
     FRAME_STITCH = 5
     frame_buffer = []
 

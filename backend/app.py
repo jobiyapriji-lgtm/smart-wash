@@ -1,6 +1,9 @@
 from ultralytics import YOLO
 import os
-from .utils.classifier import Classifier
+try:
+    from .utils.classifier import Classifier
+except (ImportError, ValueError):
+    from utils.classifier import Classifier
 
 class inferance:
     def __init__(self):
@@ -9,7 +12,7 @@ class inferance:
         self.classifier = Classifier(model=self.classification_model)
 
     def predict(self, image):
-        conf_threshold = 0.60
+        conf_threshold = 0.40
         result = self.classifier.get_result(image, conf=conf_threshold)
         if result:
             _class, _conf = result
