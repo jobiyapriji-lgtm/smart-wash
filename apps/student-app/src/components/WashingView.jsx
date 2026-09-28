@@ -5,8 +5,11 @@ export function WashingView({
   activeStep = 1,
   confidence = 0.85,
   progress = 0,
+  isHandsMoving = true,
   onStepComplete = null,
-  onFinishWashing = null
+  onFinishWashing = null,
+  onSkipStep = null,
+  onJumpToStep = null
 }) {
   const currentStepInfo = WHO_STEPS_INFO[activeStep] || WHO_STEPS_INFO[1];
   const recDuration = (currentStepInfo.recommendedDurationMs || 6000) / 1000;
@@ -28,9 +31,10 @@ export function WashingView({
     // Voice Assistant (SpeechSynthesis API fallback/primary)
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel(); // Terminate previous audio streams
-      const utterance = new SpeechSynthesisUtterance(`Step ${activeStep}: ${currentStepInfo.name}`);
+      const instructionText = currentStepInfo.instruction || currentStepInfo.name;
+      const utterance = new SpeechSynthesisUtterance(`Step ${activeStep}: ${currentStepInfo.name}. ${instructionText}`);
       utterance.rate = 1.0;
-      utterance.pitch = 1.1;
+      utterance.pitch = 1.05;
       
       try {
         window.speechSynthesis.speak(utterance);
@@ -42,7 +46,7 @@ export function WashingView({
     return () => {
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     };
-  }, [activeStep, currentStepInfo.name]);
+  }, [activeStep, currentStepInfo.name, currentStepInfo.instruction]);
 
   const progressPercent = Math.min(100, Math.max(0, progress));
 
@@ -52,12 +56,12 @@ export function WashingView({
       flexDirection: 'column',
       height: '100%',
       justifyContent: 'space-between',
-      gap: '20px'
+      gap: '16px'
     }}>
       {/* Multimedia Instruction Panel */}
       {!mediaFailed && (
         <div style={{ 
-          width: '100%', height: '180px', background: '#000', borderRadius: '18px', overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.1)'
+          width: '100%', height: '160px', background: '#000', borderRadius: '18px', overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.1)'
         }}>
           <video 
             key={`vid-step-${activeStep}`}
@@ -82,7 +86,7 @@ export function WashingView({
       <div style={{
         background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9))',
         borderRadius: '18px',
-        padding: '24px 28px',
+        padding: '20px 24px',
         border: '1px solid rgba(59, 130, 246, 0.4)',
         boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
       }}>
@@ -91,19 +95,21 @@ export function WashingView({
             <span style={{ fontSize: '12px', fontWeight: 800, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               WHO Handwashing Standard
             </span>
-            <h2 style={{ margin: '4px 0 0 0', fontSize: '28px', fontWeight: 800, color: '#ffffff' }}>
+            <h2 style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: 800, color: '#ffffff' }}>
               Step {activeStep}: {currentStepInfo.name}
             </h2>
           </div>
 
           <div style={{
-            background: 'rgba(59, 130, 246, 0.15)',
-            border: '1px solid rgba(59, 130, 246, 0.3)',
+            background: isHandsMoving ? 'rgba(59, 130, 246, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+            border: isHandsMoving ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
             borderRadius: '12px',
             padding: '8px 16px',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#60a5fa' }}>{Math.round((progressPercent / 100) * recDuration)}s</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: isHandsMoving ? '#60a5fa' : '#f87171' }}>
+              {Math.round((progressPercent / 100) * recDuration)}s
+            </div>
             <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Target: {recDuration}s</div>
           </div>
         </div>
@@ -113,10 +119,84 @@ export function WashingView({
           <div style={{
             width: `${progressPercent}%`,
             height: '100%',
-            background: 'linear-gradient(90deg, #3b82f6, #34d399)',
+            background: isHandsMoving ? 'linear-gradient(90deg, #3b82f6, #34d399)' : '#ef4444',
             borderRadius: '4px',
             transition: 'width 0.3s ease'
           }} />
+        </div>
+      </div>
+
+      {/* Real-time Movement & Action Guidance Card */}
+      <div style={{
+        padding: '14px 18px',
+        borderRadius: '14px',
+        background: isHandsMoving
+          ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.15) 100%)'
+          : 'linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(185, 28, 28, 0.18) 100%)',
+        border: isHandsMoving ? '1px solid rgba(52, 211, 153, 0.5)' : '1px solid rgba(248, 113, 113, 0.5)',
+        boxShadow: isHandsMoving ? '0 4px 15px rgba(16, 185, 129, 0.15)' : '0 4px 15px rgba(239, 68, 68, 0.15)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '14px',
+        transition: 'all 0.3s ease'
+      }}>
+        <div style={{
+          width: '42px',
+          height: '42px',
+          borderRadius: '10px',
+          background: isHandsMoving ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '22px'
+        }}>
+          {isHandsMoving ? (currentStepInfo.icon || '🧼') : '⚠️'}
+        </div>
+
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: isHandsMoving ? '#34d399' : '#f87171',
+              boxShadow: isHandsMoving ? '0 0 10px #34d399' : '0 0 10px #f87171'
+            }} />
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: isHandsMoving ? '#34d399' : '#f87171'
+            }}>
+              {isHandsMoving ? 'Active Hand Movement Detected' : 'Movement Paused · Hands Still'}
+            </span>
+          </div>
+
+          <div style={{
+            fontSize: '13px',
+            fontWeight: 700,
+            color: '#ffffff',
+            marginTop: '3px',
+            lineHeight: '1.4'
+          }}>
+            {isHandsMoving
+              ? (currentStepInfo.instruction || `Perform Step ${activeStep}`)
+              : 'Please bring your hands in front of the camera and rub them together to advance!'}
+          </div>
+        </div>
+
+        <div style={{
+          padding: '6px 12px',
+          borderRadius: '8px',
+          background: isHandsMoving ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+          border: isHandsMoving ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid rgba(248, 113, 113, 0.3)',
+          fontSize: '10px',
+          fontWeight: 800,
+          color: isHandsMoving ? '#34d399' : '#f87171',
+          textTransform: 'uppercase'
+        }}>
+          {isHandsMoving ? 'Timer Active' : 'Timer Frozen'}
         </div>
       </div>
 
@@ -129,7 +209,11 @@ export function WashingView({
           return (
             <div
               key={step.id}
+              onClick={() => {
+                if (onJumpToStep) onJumpToStep(step.id);
+              }}
               style={{
+                cursor: 'pointer',
                 background: isActive
                   ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(139, 92, 246, 0.25))'
                   : isDone
@@ -145,8 +229,11 @@ export function WashingView({
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                minHeight: '90px'
+                minHeight: '90px',
+                transition: 'all 0.2s ease',
+                transform: isActive ? 'scale(1.02)' : 'none'
               }}
+              title={`Click to jump to Step ${step.id}`}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '11px', fontWeight: 800, color: isActive ? '#60a5fa' : isDone ? '#34d399' : '#94a3b8' }}>
@@ -169,37 +256,44 @@ export function WashingView({
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399' }} />
           <span style={{ fontSize: '12px', fontWeight: 700, color: '#e2e8f0' }}>
-            Touchless AI Vision Engine Active · Analyzing Hand Movements Automatically
+            Touchless AI Vision Active · Follow WHO Step Guidance
           </span>
         </div>
 
-        {/* Discreet Demo Skip Button (For Presentation Overrides) */}
+        {/* Demo Skip / Finish Button */}
         <button
+          id="skip-or-finish-step-btn"
           onClick={() => {
-            if (onStepComplete) {
-              onStepComplete({
-                stepNumber: activeStep,
-                durationMs: recDuration * 1000,
-                avgConfidence: confidence || 0.9,
-                completed: true
-              });
-            }
-            if (activeStep >= 6 && onFinishWashing) {
-              onFinishWashing();
+            if (activeStep >= 6) {
+              if (onStepComplete) {
+                onStepComplete({
+                  stepNumber: 6,
+                  durationMs: recDuration * 1000,
+                  avgConfidence: confidence || 0.95,
+                  completed: true
+                });
+              }
+              if (onFinishWashing) onFinishWashing();
+            } else {
+              if (onSkipStep) {
+                onSkipStep();
+              }
             }
           }}
           style={{
-            padding: '6px 12px',
-            borderRadius: '6px',
-            border: '1px dashed rgba(255, 255, 255, 0.2)',
-            background: 'transparent',
-            color: '#94a3b8',
-            fontSize: '11px',
-            cursor: 'pointer'
+            padding: '8px 16px',
+            borderRadius: '8px',
+            border: activeStep >= 6 ? 'none' : '1px solid rgba(59, 130, 246, 0.4)',
+            background: activeStep >= 6 ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(59, 130, 246, 0.15)',
+            color: '#ffffff',
+            fontWeight: 700,
+            fontSize: '12px',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
           }}
-          title="Manual override for demo presentations"
+          title={activeStep >= 6 ? "Finish Washing & View Score" : "Skip to next step"}
         >
-          Skip Step ➔
+          {activeStep >= 6 ? 'Complete & Score ➔' : 'Skip Step ➔'}
         </button>
       </div>
     </div>

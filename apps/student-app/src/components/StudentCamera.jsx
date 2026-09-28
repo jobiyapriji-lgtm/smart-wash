@@ -151,33 +151,35 @@ export function KioskCamera({
         {state === 'washing' && (
           <div style={{
             position: 'absolute',
-            top: '50%',
+            top: '55%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            width: '320px',
-            height: '220px',
-            borderRadius: '20px',
-            border: '2px solid rgba(59, 130, 246, 0.6)',
-            background: 'rgba(15, 23, 42, 0.6)',
+            width: '340px',
+            height: '240px',
+            borderRadius: '24px',
+            border: '2px dashed rgba(59, 130, 246, 0.45)',
+            boxShadow: 'inset 0 0 25px rgba(59, 130, 246, 0.1)',
+            pointerEvents: 'none',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: 'flex-end',
             flexDirection: 'column',
-            backdropFilter: 'blur(8px)',
-            boxShadow: '0 0 30px rgba(59, 130, 246, 0.25)'
+            paddingBottom: '16px'
           }}>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '8px' }}>
-              <span style={{ fontSize: '24px', animation: 'bounce 1s infinite alternate' }}>🧼</span>
-              <span style={{ fontSize: '24px' }}>👐</span>
-            </div>
-            <span style={{ fontSize: '14px', color: '#93c5fd', fontWeight: 800 }}>
-              AI Hand Landmark Tracking Active
-            </span>
-            <span style={{ fontSize: '12px', color: '#34d399', marginTop: '4px', fontWeight: 700 }}>
-              Step {activeStep || 1} · {Math.round(confidence * 100)}% ML Confidence
-            </span>
-            <div style={{ marginTop: '10px', fontSize: '11px', color: '#94a3b8' }}>
-              21 3D Coordinate Points Locked
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.85)',
+              backdropFilter: 'blur(8px)',
+              padding: '6px 16px',
+              borderRadius: '20px',
+              border: '1px solid rgba(59, 130, 246, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span style={{ fontSize: '14px' }}>👐</span>
+              <span style={{ fontSize: '11px', color: '#93c5fd', fontWeight: 800 }}>
+                Wash & Rub Hands in View · Step {activeStep || 1}
+              </span>
             </div>
           </div>
         )}

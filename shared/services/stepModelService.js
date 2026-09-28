@@ -7,13 +7,62 @@
  */
 
 export const WHO_STEPS_INFO = [
-  { id: 0, name: "Wet Hands & Apply Soap", recommendedDurationMs: 5000 },
-  { id: 1, name: "Palm to Palm", recommendedDurationMs: 6000 },
-  { id: 2, name: "Right Palm over Left Dorsum & vice versa", recommendedDurationMs: 6000 },
-  { id: 3, name: "Palm to Palm with Fingers Interlaced", recommendedDurationMs: 6000 },
-  { id: 4, name: "Backs of Fingers to Opposing Palms", recommendedDurationMs: 6000 },
-  { id: 5, name: "Rotational Rubbing of Thumbs", recommendedDurationMs: 6000 },
-  { id: 6, name: "Rotational Rubbing of Fingertips on Palms", recommendedDurationMs: 6000 }
+  { 
+    id: 0, 
+    name: "Wet Hands & Apply Soap", 
+    instruction: "Wet hands with water and apply sufficient soap to cover all hand surfaces.",
+    cue: "Wet & Soap",
+    icon: "🧼",
+    recommendedDurationMs: 5000 
+  },
+  { 
+    id: 1, 
+    name: "Palm to Palm", 
+    instruction: "Rub your palms together firmly in circular motions.",
+    cue: "Rub palms in circles",
+    icon: "🤲",
+    recommendedDurationMs: 6000 
+  },
+  { 
+    id: 2, 
+    name: "Right Palm over Left Dorsum & vice versa", 
+    instruction: "Place right palm over back of left hand with fingers interlaced, rub well, then swap hands.",
+    cue: "Rub backs of hands",
+    icon: "🖐️",
+    recommendedDurationMs: 6000 
+  },
+  { 
+    id: 3, 
+    name: "Palm to Palm with Fingers Interlaced", 
+    instruction: "Interlace your fingers palm-to-palm and rub back and forth in between fingers.",
+    cue: "Interlace fingers & rub",
+    icon: "🤝",
+    recommendedDurationMs: 6000 
+  },
+  { 
+    id: 4, 
+    name: "Backs of Fingers to Opposing Palms", 
+    instruction: "Clasp backs of fingers against opposing palms with fingers interlocked and rub side-to-side.",
+    cue: "Interlock backs of fingers",
+    icon: "✊",
+    recommendedDurationMs: 6000 
+  },
+  { 
+    id: 5, 
+    name: "Rotational Rubbing of Thumbs", 
+    instruction: "Clasp your left thumb in your right palm and rub rotationally, then switch hands.",
+    cue: "Rotate thumbs in palms",
+    icon: "👍",
+    recommendedDurationMs: 6000 
+  },
+  { 
+    id: 6, 
+    name: "Rotational Rubbing of Fingertips on Palms", 
+    instruction: "Rub the fingertips of your right hand circularly in the left palm, then swap sides.",
+    cue: "Rub fingertips in circles",
+    icon: "💅",
+    recommendedDurationMs: 6000 
+  }
 ];
 
 export function calculateMajorityVote(predictionHistory) {
@@ -43,8 +92,8 @@ export function calculateMajorityVote(predictionHistory) {
 export class StepRecognitionEngine {
   constructor(options = {}) {
     this.historyWindowSize = options.historyWindowSize || 8;
-    this.confidenceThreshold = options.confidenceThreshold !== undefined ? options.confidenceThreshold : 0.40;
-    this.consecutiveFramesRequired = options.consecutiveFramesRequired || 4;
+    this.confidenceThreshold = options.confidenceThreshold !== undefined ? options.confidenceThreshold : 0.20;
+    this.consecutiveFramesRequired = options.consecutiveFramesRequired || 12;
     this.stepTimeoutSeconds = options.stepTimeoutSeconds || 30;
     
     this.predictionHistory = [];
@@ -76,10 +125,25 @@ export class StepRecognitionEngine {
 
   predict(prediction, timestamp) {
     const now = timestamp || performance.now();
-    
+    const expectedClasses = this.mapStepToYoloClass(this.currentStep);
+
+    // Evaluate effective class, checking if the expected step is confirmed directly or via top5
+    let effectiveClass = prediction.class || "background";
+    let effectiveConfidence = prediction.confidence || 0;
+
+    if (prediction.top5) {
+      for (const exp of expectedClasses) {
+        if (prediction.top5[exp] !== undefined && prediction.top5[exp] >= 0.16) {
+          effectiveClass = exp;
+          effectiveConfidence = prediction.top5[exp];
+          break;
+        }
+      }
+    }
+
     // Add to rolling history buffer
-    if (prediction.confidence >= this.confidenceThreshold) {
-      this.predictionHistory.push(prediction.class);
+    if (effectiveConfidence >= this.confidenceThreshold) {
+      this.predictionHistory.push(effectiveClass);
     } else {
       this.predictionHistory.push("background");
     }
@@ -89,7 +153,6 @@ export class StepRecognitionEngine {
     }
 
     const { majorityClass, confidence } = calculateMajorityVote(this.predictionHistory);
-    const expectedClasses = this.mapStepToYoloClass(this.currentStep);
     
     // Check timeout
     if ((now - this.stepStartTime) > this.stepTimeoutSeconds * 1000 && this.currentStep <= 6) {
@@ -101,7 +164,7 @@ export class StepRecognitionEngine {
         return this._getOutput(confidence);
     }
     
-    // Sequence Violation Policy: check if step K+1 persists with high confidence
+    // Sequence Violation Policy: check if step K+1 persists over required consecutive frames
     const detectedStep = this.getYoloClassStep(majorityClass);
     if (detectedStep > this.currentStep) {
         // High confidence streak for K+1
@@ -119,7 +182,7 @@ export class StepRecognitionEngine {
     }
 
     // If the majority prediction matches our expected current step, accumulate time
-    if (expectedClasses.includes(majorityClass)) {
+    if (expectedClasses.includes(majorityClass) || (expectedClasses.includes(effectiveClass) && effectiveConfidence >= this.confidenceThreshold)) {
       if (this.lastActiveTime) {
         this.activeTimeMs += (now - this.lastActiveTime);
       }
@@ -155,6 +218,38 @@ export class StepRecognitionEngine {
           completedSteps: this.completedSteps,
           missedSteps: this.missedSteps
       };
+  }
+
+  skipStep() {
+    if (this.currentStep <= 6) {
+      if (!this.completedSteps.includes(this.currentStep)) {
+        this.completedSteps.push(this.currentStep);
+      }
+      this.currentStep++;
+      this.activeTimeMs = 0;
+      this.lastActiveTime = null;
+      this.stepStartTime = performance.now();
+      if (this.currentStep <= 6) {
+        this.predictionHistory = new Array(this.historyWindowSize).fill(this.mapStepToYoloClass(this.currentStep)[0]);
+      }
+    }
+    return this._getOutput(0.95);
+  }
+
+  jumpToStep(stepNumber) {
+    if (stepNumber < 1 || stepNumber > 6) return this._getOutput();
+    while (this.currentStep < stepNumber) {
+      if (!this.completedSteps.includes(this.currentStep) && !this.missedSteps.includes(this.currentStep)) {
+        this.missedSteps.push(this.currentStep);
+      }
+      this.currentStep++;
+    }
+    this.currentStep = stepNumber;
+    this.activeTimeMs = 0;
+    this.lastActiveTime = null;
+    this.stepStartTime = performance.now();
+    this.predictionHistory = new Array(this.historyWindowSize).fill(this.mapStepToYoloClass(this.currentStep)[0]);
+    return this._getOutput(0.95);
   }
 
   reset() {

@@ -78,9 +78,12 @@ export function StudentKioskApp({ useMock = true }) {
     activeStep: mlActiveStep,
     confidence: stepConfidence,
     progress: mlProgress,
+    isHandsMoving,
     resetTracker,
     telemetry,
-    missedSteps
+    missedSteps,
+    skipStep,
+    jumpToStep
   } = useStepRecognition({
     videoRef,
     enabled: state.currentState === KIOSK_STATES.WASHING,
@@ -242,8 +245,7 @@ export function StudentKioskApp({ useMock = true }) {
             }}>
               <div style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '8px', borderBottom: '1px solid #ef4444', paddingBottom: '4px' }}>[HANDWASH_DEBUG_HUD]</div>
               <div>AI Backend (ws://localhost:4550): <span style={{ color: telemetry.serverStatus === 'CONNECTED' ? '#22c55e' : '#ef4444', fontWeight: 'bold' }}>{telemetry.serverStatus || 'DISCONNECTED'}</span></div>
-              <div>Camera Stream: <span style={{ color: telemetry.camActive ? '#22c55e' : '#ef4444' }}>{telemetry.camActive ? 'ACTIVE (320x320 @ 10fps)' : 'INITIALIZING...'}</span></div>
-              <div>Hand Tracker: [Left: <span style={{ color: telemetry.leftHand ? '#22c55e' : '#ef4444' }}>{telemetry.leftHand ? 'YES' : 'NO'}</span> | Right: <span style={{ color: telemetry.rightHand ? '#22c55e' : '#ef4444' }}>{telemetry.rightHand ? 'YES' : 'NO'}</span>]</div>
+              <div>Hand Movement: <span style={{ color: telemetry.leftHand ? '#22c55e' : '#ef4444', fontWeight: 'bold' }}>{telemetry.leftHand ? 'ACTIVE MOVEMENT' : 'STATIONARY / WAITING'}</span></div>
               <div>Raw Prediction: <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>{telemetry.rawPrediction}</span></div>
               <div>Raw Confidence: <span style={{ color: '#eab308' }}>{(telemetry.rawConfidence || 0).toFixed(2)}</span></div>
               <div>Target Expected Step: <span style={{ color: '#a855f7' }}>{telemetry.expectedStep}</span></div>
@@ -363,8 +365,11 @@ export function StudentKioskApp({ useMock = true }) {
               activeStep={mlActiveStep}
               confidence={stepConfidence || 0.88}
               progress={mlProgress}
+              isHandsMoving={isHandsMoving}
               onStepComplete={handleStepComplete}
               onFinishWashing={handleFinishWashing}
+              onSkipStep={skipStep}
+              onJumpToStep={jumpToStep}
             />
           )}
 

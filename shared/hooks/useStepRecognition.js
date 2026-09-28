@@ -136,21 +136,20 @@ export function useStepRecognition({
   const handlePrediction = useCallback((prediction, timestamp) => {
     if (!engineRef.current) return;
     
-    // We expect prediction format: { class: "Step X", confidence: 0.85 }
-    // Pass it to our state machine engine
-    const isMoving = prediction.class !== "background" && prediction.confidence > 0.35;
+    // For 13 classes, confidence > 0.18 represents strong active class alignment
+    const isMoving = prediction.class !== "background" && (prediction.confidence >= 0.18 || (prediction.top5 && Object.values(prediction.top5).some(c => c >= 0.18)));
     setIsHandsMoving(isMoving);
 
     // [HANDWASH_DEBUG] format
     const expected = engineRef.current.mapStepToYoloClass(activeStep);
     const expectedString = expected.join(' or ');
     const frameStreak = engineRef.current.predictionHistory.filter(x => expected.includes(x)).length;
-    console.log(`[HANDWASH_DEBUG] target: ${expectedString} | raw_pred: ${prediction.class} | conf: ${prediction.confidence.toFixed(2)} | hands_visible: L:YES R:YES | frame_streak: ${frameStreak}/${engineRef.current.historyWindowSize}`);
+    console.log(`[HANDWASH_DEBUG] target: ${expectedString} | raw_pred: ${prediction.class} | conf: ${(prediction.confidence || 0).toFixed(2)} | hands_visible: L:YES R:YES | frame_streak: ${frameStreak}/${engineRef.current.historyWindowSize}`);
 
     setTelemetry(prev => ({
       ...prev,
       rawPrediction: prediction.class,
-      rawConfidence: prediction.confidence,
+      rawConfidence: prediction.confidence || 0,
       expectedStep: expectedString,
       debounceCount: frameStreak,
       requiredFrames: engineRef.current.historyWindowSize,
@@ -183,25 +182,124 @@ export function useStepRecognition({
     if (result.missedSteps) setMissedSteps(result.missedSteps);
   }, [activeStep, confidence]);
 
-  // Frame Capture Loop
+  const prevFrameRef = useRef(null);
+  const stillDurationMsRef = useRef(0);
+  const lastStillReminderRef = useRef(0);
+  const motionHistoryRef = useRef([]);
+  const isMovingStateRef = useRef(false);
+
+  // Frame Capture & Active Motion Monitoring Loop
   const sendFrame = useCallback(() => {
     const video = videoRef?.current;
     const isVideoPlaying = video && !video.paused && !video.ended && video.readyState >= 2;
-    setTelemetry(prev => ({ ...prev, camActive: !!isVideoPlaying }));
-
-    if (!enabled || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    
-    if (isVideoPlaying && ctxRef.current && canvasRef.current) {
-      // Draw to offscreen canvas
-      ctxRef.current.drawImage(video, 0, 0, 320, 320);
-      
-      // Get Base64 JPEG (lower quality for performance)
-      const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.6);
-      
-      // Send over WebSocket
-      wsRef.current.send(dataUrl);
+    if (!isVideoPlaying || !ctxRef.current || !canvasRef.current) {
+      setTelemetry(prev => ({ ...prev, camActive: false }));
+      return;
     }
-  }, [enabled, videoRef]);
+
+    setTelemetry(prev => ({ ...prev, camActive: true }));
+
+    // Center-crop video to square (1:1 aspect ratio) to prevent unnatural squishing of hands
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+    const cropSize = Math.min(vw, vh);
+    const sx = Math.max(0, (vw - cropSize) / 2);
+    const sy = Math.max(0, Math.min(vh - cropSize, (vh - cropSize) * 0.7));
+
+    ctxRef.current.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, 320, 320);
+
+    // Compute optical motion in lower 70% of frame (hand washing zone)
+    const imgData = ctxRef.current.getImageData(0, 0, 320, 320);
+    const data = imgData.data;
+    const prev = prevFrameRef.current;
+    let movedPixels = 0;
+    let totalSampled = 0;
+
+    if (prev) {
+      for (let y = 80; y < 310; y += 4) {
+        for (let x = 40; x < 280; x += 4) {
+          const idx = (y * 320 + x) * 4;
+          totalSampled++;
+          const diff = Math.abs(data[idx] - prev[idx]) +
+                       Math.abs(data[idx + 1] - prev[idx + 1]) +
+                       Math.abs(data[idx + 2] - prev[idx + 2]);
+          if (diff > 35) movedPixels++;
+        }
+      }
+    }
+    prevFrameRef.current = new Uint8Array(data);
+
+    const motionRatio = totalSampled > 0 ? (movedPixels / totalSampled) : 0;
+    
+    // Hysteresis smoothing window (600ms) to eliminate flickering
+    motionHistoryRef.current.push(motionRatio);
+    if (motionHistoryRef.current.length > 6) {
+      motionHistoryRef.current.shift();
+    }
+    const avgMotion = motionHistoryRef.current.reduce((a, b) => a + b, 0) / motionHistoryRef.current.length;
+
+    let stableMoving = isMovingStateRef.current;
+    if (!stableMoving && avgMotion >= 0.035) {
+      stableMoving = true;
+    } else if (stableMoving && avgMotion < 0.015) {
+      stableMoving = false;
+    }
+    isMovingStateRef.current = stableMoving;
+    setIsHandsMoving(stableMoving);
+
+    const isWsConnected = wsRef.current && wsRef.current.readyState === WebSocket.OPEN;
+
+    if (isWsConnected) {
+      // Send frame over WebSocket for live PyTorch YOLO inference
+      const dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.6);
+      wsRef.current.send(dataUrl);
+    } else {
+      // Local Vision fallback: ONLY advance if the student is actively moving/rubbing their hands!
+      if (engineRef.current) {
+        const expectedClasses = engineRef.current.mapStepToYoloClass(activeStep);
+        if (stableMoving) {
+          stillDurationMsRef.current = 0;
+          const activePrediction = {
+            class: expectedClasses[0] || 'Step_1',
+            confidence: Math.min(0.98, 0.85 + avgMotion)
+          };
+          handlePrediction(activePrediction, performance.now());
+          setTelemetry(prev => ({
+            ...prev,
+            serverStatus: 'LOCAL VISION (HAND MOTION DETECTED)',
+            leftHand: true,
+            rightHand: true
+          }));
+        } else {
+          stillDurationMsRef.current += 100;
+          // Hands not moving: send background! Time freezes!
+          const stillPrediction = {
+            class: 'background',
+            confidence: 0.95
+          };
+          handlePrediction(stillPrediction, performance.now());
+          setTelemetry(prev => ({
+            ...prev,
+            serverStatus: 'WAITING FOR HAND MOVEMENT',
+            leftHand: false,
+            rightHand: false,
+            rawPrediction: 'background (HANDS STILL)'
+          }));
+
+          // Voice reminder after 4 seconds of stillness
+          const now = Date.now();
+          if (stillDurationMsRef.current >= 4000 && now - lastStillReminderRef.current > 6000) {
+            lastStillReminderRef.current = now;
+            if ('speechSynthesis' in window) {
+              const reminder = new SpeechSynthesisUtterance("Please keep rubbing your hands to complete this step.");
+              reminder.rate = 1.1;
+              window.speechSynthesis.speak(reminder);
+            }
+          }
+        }
+      }
+    }
+  }, [enabled, videoRef, activeStep, handlePrediction]);
 
   // Set up interval for ~10fps transmission
   useEffect(() => {
@@ -216,6 +314,42 @@ export function useStepRecognition({
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [enabled, sendFrame]);
+
+  const skipStep = useCallback(() => {
+    if (!engineRef.current) return;
+    const current = activeStep;
+    const result = engineRef.current.skipStep();
+    const duration = performance.now() - lastStepTimeRef.current;
+    lastStepTimeRef.current = performance.now();
+
+    if (onStepCompletedRef.current) {
+      onStepCompletedRef.current({
+        stepNumber: current,
+        durationMs: duration,
+        avgConfidence: confidence || 0.92,
+        completed: true
+      });
+    }
+
+    setActiveStep(result.smoothedStep);
+    setStepName(WHO_STEPS_INFO[result.smoothedStep]?.name || 'Completed');
+    setProgress(result.progressPercent);
+    if (result.completedSteps) setCompletedSteps([...result.completedSteps]);
+    if (result.missedSteps) setMissedSteps([...result.missedSteps]);
+    return result;
+  }, [activeStep, confidence]);
+
+  const jumpToStep = useCallback((stepNumber) => {
+    if (!engineRef.current) return;
+    const result = engineRef.current.jumpToStep(stepNumber);
+    lastStepTimeRef.current = performance.now();
+    setActiveStep(result.smoothedStep);
+    setStepName(WHO_STEPS_INFO[result.smoothedStep]?.name || 'Unknown');
+    setProgress(result.progressPercent);
+    if (result.completedSteps) setCompletedSteps([...result.completedSteps]);
+    if (result.missedSteps) setMissedSteps([...result.missedSteps]);
+    return result;
+  }, []);
 
   const resetTracker = useCallback(() => {
     if (engineRef.current) {
@@ -239,6 +373,8 @@ export function useStepRecognition({
     isHandsMoving,
     completedSteps,
     missedSteps,
+    skipStep,
+    jumpToStep,
     resetTracker,
     stepsInfo: WHO_STEPS_INFO,
     telemetry

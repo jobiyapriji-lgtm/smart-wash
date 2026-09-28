@@ -28,8 +28,6 @@ app.add_middleware(
 @app.websocket("/ws_model")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    FRAME_STITCH = 5
-    frame_buffer = []
 
     try:
         while True:
@@ -47,16 +45,9 @@ async def websocket_endpoint(websocket: WebSocket):
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             
             if frame is not None:
-                frame_buffer.append(frame)
-
-            # Process only when buffer is full
-            if len(frame_buffer) >= FRAME_STITCH:
-                combined = combine_frames(frame_buffer)
-                frame_buffer = []
-                
-                # Get single inference result
+                # Directly predict on the clean, unblurred frame in real-time
                 timestamp = time.time() * 1000
-                result = infr.predict(combined)
+                result = infr.predict(frame)
                 
                 await websocket.send_json({
                     "timestamp": timestamp,

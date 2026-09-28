@@ -2,6 +2,8 @@
 
 Autonomous AI Handwashing Compliance & Identification Kiosk.
 
+> 📖 **Operator & User Guide**: For complete step-by-step instructions, camera positioning, and WHO handwashing techniques, see [HOW_TO_USE.md](HOW_TO_USE.md).
+
 ## 📁 Project Architecture & Team Roles
 
 - **🧠 Jobiya**: Hand landmark extraction & Keras/TF.js LSTM step recognition model (`ml/`)
